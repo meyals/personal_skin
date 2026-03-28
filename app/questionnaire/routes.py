@@ -14,6 +14,7 @@ from wtforms import (
     TextAreaField,
 )
 from wtforms.validators import DataRequired, NumberRange, Optional
+from wtforms.widgets import CheckboxInput, ListWidget
 
 from app.extensions import db
 from app.models import Routine, SkinProfile
@@ -82,9 +83,27 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
-    concerns = SelectMultipleField("חששות עיקריים (ניתן לבחור כמה)", choices=[], validators=[DataRequired(message="נא לבחור לפחות חשש אחד")])
-    sensitivities = SelectMultipleField("רגישויות / להימנעות", choices=[], validators=[Optional()])
-    goals = SelectMultipleField("מטרות טיפוח", choices=[], validators=[Optional()])
+    concerns = SelectMultipleField(
+        "חששות עיקריים (ניתן לבחור כמה)",
+        choices=[],
+        validators=[DataRequired(message="נא לבחור לפחות חשש אחד")],
+        widget=ListWidget(prefix_label=False),
+        option_widget=CheckboxInput(),
+    )
+    sensitivities = SelectMultipleField(
+        "רגישויות / להימנעות",
+        choices=[],
+        validators=[Optional()],
+        widget=ListWidget(prefix_label=False),
+        option_widget=CheckboxInput(),
+    )
+    goals = SelectMultipleField(
+        "מטרות טיפוח",
+        choices=[],
+        validators=[Optional()],
+        widget=ListWidget(prefix_label=False),
+        option_widget=CheckboxInput(),
+    )
     budget = RadioField(
         "תקציב חודשי משוער לטיפוח פנים",
         choices=[
