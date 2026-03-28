@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}שגרת הטיפוח שלי — PersonalSkin{% endblock %}
+{% block content %}
+<div class="card wide">
+  <h1>שגרת הטיפוח המותאמת לך</h1>
+  <p class="muted">סיכום פרופיל: <strong>{{ profile.summary_label or '—' }}</strong>
+    {% if routine.used_openai %}
+      <span class="badge">נוצר עם מודל שפה (AI)</span>
+    {% else %}
+      <span class="badge badge-soft">מצב גיבוי (ללא מפתח API)</span>
+    {% endif %}
+  </p>
+
+  <div class="routine-columns">
+    <section class="routine-block">
+      <h2>בוקר</h2>
+      <div class="routine-body markdown-body">{{ routine.morning_text | markdown_safe }}</div>
+    </section>
+    <section class="routine-block">
+      <h2>ערב</h2>
+      <div class="routine-body markdown-body">{{ routine.evening_text | markdown_safe }}</div>
+    </section>
+  </div>
+
+  <div class="actions-row">
+    <a class="btn btn-ghost" href="{{ url_for('questionnaire.show_questionnaire') }}">עריכת שאלון</a>
+    <a class="btn" href="{{ url_for('community.community_feed') }}">מעבר לקהילה</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}שאלון פרופיל עור — PersonalSkin{% endblock %}
+{% block content %}
+<div class="card wide">
+  <h1>שאלון פרופיל עור</h1>
+  <p class="lead">מלאי את הפרטים בכנות. לפי התשובות תיווצר שגרת בוקר וערב מותאמת. ניתן למלא מחדש ולעדכן את השגרה בכל עת.</p>
+
+  <form method="post" class="questionnaire-form" novalidate>
+    {{ form.hidden_tag() }}
+
+    <section class="form-section">
+      <h2>מאפייני עור ומטרות</h2>
+      <div class="form-grid two-cols">
+        <label>{{ form.skin_type.label }} {{ form.skin_type(class="input") }}</label>
+        <label>{{ form.age_range.label }} {{ form.age_range(class="input") }}</label>
+      </div>
+      {% for e in form.skin_type.errors %}<span class="error">{{ e }}</span>{% endfor %}
+      {% for e in form.age_range.errors %}<span class="error">{{ e }}</span>{% endfor %}
+
+      <fieldset class="checkbox-fieldset">
+        <legend>{{ form.concerns.label }}</legend>
+        <div class="checkbox-grid">
+          {% for subfield in form.concerns %}
+            <label class="checkbox-label">{{ subfield() }} {{ subfield.label.text }}</label>
+          {% endfor %}
+        </div>
+        {% for e in form.concerns.errors %}<span class="error">{{ e }}</span>{% endfor %}
+      </fieldset>
+
+      <fieldset class="checkbox-fieldset">
+        <legend>{{ form.sensitivities.label }}</legend>
+        <div class="checkbox-grid">
+          {% for subfield in form.sensitivities %}
+            <label class="checkbox-label">{{ subfield() }} {{ subfield.label.text }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset class="checkbox-fieldset">
+        <legend>{{ form.goals.label }}</legend>
+        <div class="checkbox-grid">
+          {% for subfield in form.goals %}
+            <label class="checkbox-label">{{ subfield() }} {{ subfield.label.text }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="form-section">
+      <h2>אורח חיים ותקציב</h2>
+      <div class="radio-group">
+        <span class="label-text">{{ form.budget.label }}</span>
+        {% for subfield in form.budget %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+        {% for e in form.budget.errors %}<span class="error">{{ e }}</span>{% endfor %}
+      </div>
+      <div class="form-grid two-cols">
+        <label>{{ form.time_morning.label }} {{ form.time_morning(class="input") }}</label>
+        <label>{{ form.time_evening.label }} {{ form.time_evening(class="input") }}</label>
+      </div>
+      {% for e in form.time_morning.errors %}<span class="error">{{ e }}</span>{% endfor %}
+      {% for e in form.time_evening.errors %}<span class="error">{{ e }}</span>{% endfor %}
+
+      <div class="form-grid two-cols">
+        <label>{{ form.climate.label }} {{ form.climate(class="input") }}</label>
+      </div>
+      {% for e in form.climate.errors %}<span class="error">{{ e }}</span>{% endfor %}
+
+      <div class="radio-group">
+        <span class="label-text">{{ form.water_hard.label }}</span>
+        {% for subfield in form.water_hard %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <div class="radio-group">
+        <span class="label-text">{{ form.sun_exposure.label }}</span>
+        {% for subfield in form.sun_exposure %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <div class="radio-group">
+        <span class="label-text">{{ form.makeup_frequency.label }}</span>
+        {% for subfield in form.makeup_frequency %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <div class="radio-group">
+        <span class="label-text">{{ form.spf_habit.label }}</span>
+        {% for subfield in form.spf_habit %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>טיפוח נוכחי ובריאות</h2>
+      <div class="radio-group">
+        <span class="label-text">{{ form.exfoliation.label }}</span>
+        {% for subfield in form.exfoliation %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <div class="radio-group">
+        <span class="label-text">{{ form.retinol.label }}</span>
+        {% for subfield in form.retinol %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <div class="radio-group">
+        <span class="label-text">{{ form.pregnancy.label }}</span>
+        {% for subfield in form.pregnancy %}
+          <label class="radio-label">{{ subfield() }} {{ subfield.label.text }}</label>
+        {% endfor %}
+      </div>
+      <label class="checkbox-label block">{{ form.uses_actives() }} {{ form.uses_actives.label.text }}</label>
+      <label>{{ form.notes.label }} {{ form.notes(class="input textarea") }}</label>
+    </section>
+
+    {{ form.submit(class="btn btn-submit") }}
+  </form>
+</div>
+{% endblock %}

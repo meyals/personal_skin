@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}ברוכים הבאים — PersonalSkin{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>PersonalSkin</h1>
+  <p class="lead">התאמת שגרת טיפוח אישית לפי פרופיל העור שלך — שאלון מפורט, שגרת בוקר וערב, ושיתוף בקהילה.</p>
+  <div class="hero-actions">
+    <a class="btn" href="{{ url_for('auth.register') }}">הרשמה והתחלה</a>
+    <a class="btn btn-ghost" href="{{ url_for('auth.login') }}">כבר רשומה? התחברות</a>
+    <a class="btn btn-ghost" href="{{ url_for('community.community_feed') }}">צפייה בקהילה</a>
+  </div>
+  <ul class="feature-list">
+    <li>מסד נתונים לשמירת פרופיל ושגרה</li>
+    <li>שאלון מסודר לפי קריטריונים רבים</li>
+    <li>יצירת שגרה עם בינה מלאכותית (או מצב גיבוי ללא API)</li>
+    <li>דף קהילה לצפייה בשיתופים של משתמשים אחרים</li>
+  </ul>
+</section>
+{% endblock %}

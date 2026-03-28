@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}קהילה — PersonalSkin{% endblock %}
+{% block content %}
+<div class="card wide">
+  <h1>קהילה — שיתופים</h1>
+  <p class="lead">כאן מוצגים פרופילי עור ושגרות טיפוח שמשתמשים בחרו לשתף. הצפייה פתוחה לכולן; פרסום דורש התחברות.</p>
+
+  {% if current_user.is_authenticated and form %}
+  <div class="share-box">
+    <h2>שתפי את הפרופיל והשגרה שלך</h2>
+    <form method="post" action="{{ url_for('community.share_post') }}" class="form-grid share-inline">
+      {{ form.hidden_tag() }}
+      <label>{{ form.display_name.label }} {{ form.display_name(class="input", placeholder="למשל: לירון") }}</label>
+      {{ form.submit(class="btn") }}
+    </form>
+  </div>
+  {% elif not current_user.is_authenticated %}
+  <p class="muted"><a href="{{ url_for('auth.login') }}">התחברי</a> כדי לפרסם שיתוף.</p>
+  {% endif %}
+
+  {% if not shares %}
+    <p>עדיין אין שיתופים — תהיי הראשונה לפרסם.</p>
+  {% endif %}
+
+  <div class="share-feed">
+    {% for s in shares %}
+    <article class="share-card">
+      <header class="share-card-head">
+        <span class="share-name">{{ s.display_name }}</span>
+        <time datetime="{{ s.created_at.isoformat() }}">{{ s.created_at.strftime('%d/%m/%Y %H:%M') }}</time>
+      </header>
+      <details class="share-details">
+        <summary>פרופיל ושאלון</summary>
+        <div class="routine-body markdown-body small">{{ s.profile_summary | markdown_safe }}</div>
+      </details>
+      <h3 class="share-sub">שגרת בוקר</h3>
+      <div class="routine-body markdown-body">{{ s.morning_routine | markdown_safe }}</div>
+      <h3 class="share-sub">שגרת ערב</h3>
+      <div class="routine-body markdown-body">{{ s.evening_routine | markdown_safe }}</div>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
