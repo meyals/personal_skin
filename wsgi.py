@@ -1,0 +1,7 @@
+"""WSGI entrypoint for production servers (Render/Gunicorn)."""
+import os
+
+from app import create_app
+
+app = create_app(os.getenv("FLASK_CONFIG", "production"))
+

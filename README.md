@@ -86,6 +86,36 @@ py -3 -m flask run --host 127.0.0.1 --port 5000
 
 ---
 
+## פריסה ל-Render (URL קבוע)
+
+כדי לקבל URL ציבורי קבוע לאפליקציה, הפרויקט כולל כעת קובץ `render.yaml` עם הגדרות ברירת מחדל ל-Web Service.
+
+### מה נוסף בפרויקט לצורך Render
+
+- `render.yaml` — הגדרת שירות Render (build/start/env).
+- `wsgi.py` — נקודת כניסה לשרת production (`wsgi:app`).
+- `gunicorn` נוסף ל־`requirements.txt`.
+
+### שלבי Deploy
+
+1. דחפו את הקוד ל־GitHub (כולל `render.yaml` ו־`wsgi.py`).
+2. ב־Render בחרו **New +** -> **Blueprint** (מומלץ, מזהה `render.yaml`) או **Web Service**.
+3. חברו את הריפו ובצעו deploy.
+4. ב־Environment Variables הגדירו לפחות:
+   - `OPENAI_API_KEY` (אם רוצים יצירת שגרה דרך מודל)
+   - `FLASK_SECRET_KEY` (אם לא משתמשים ב־`generateValue` מה־Blueprint)
+   - אופציונלי: `OPENAI_MODEL`
+5. לאחר deploy תקבלו URL בסגנון:
+   - `https://personal-skin.onrender.com`
+
+### חשוב לגבי 24/7
+
+- URL של Render הוא קבוע כל עוד שם השירות נשאר קבוע.
+- כדי שהשירות יהיה פעיל **24/7 ללא sleep**, השתמשו בתוכנית בתשלום (למשל `Starter`).
+- בתוכניות חינמיות שירותים עשויים \"להירדם\" לאחר חוסר פעילות.
+
+---
+
 ## למפתחים
 
 ### טכנולוגיות (סטאק)
