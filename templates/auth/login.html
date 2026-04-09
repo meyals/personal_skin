@@ -11,6 +11,7 @@
     {% for e in form.password.errors %}<span class="error">{{ e }}</span>{% endfor %}
     {{ form.submit(class="btn") }}
   </form>
+  <p class="muted"><a href="{{ url_for('auth.forgot_password') }}">שכחתי סיסמה</a></p>
   <p class="muted">אין לך חשבון? <a href="{{ url_for('auth.register') }}">הרשמה</a></p>
 </div>
 {% endblock %}

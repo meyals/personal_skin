@@ -10,6 +10,9 @@
       <span class="badge badge-soft">מצב גיבוי (ללא מפתח API)</span>
     {% endif %}
   </p>
+  {% if latest_version %}
+    <p class="muted">גרסה נוכחית של השגרה: <strong>{{ latest_version.version_number }}</strong></p>
+  {% endif %}
 
   <div class="routine-columns">
     <section class="routine-block">

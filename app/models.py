@@ -26,6 +26,13 @@ class User(UserMixin, db.Model):
 
     skin_profile = db.relationship("SkinProfile", backref="user", uselist=False, cascade="all, delete-orphan")
     routine = db.relationship("Routine", backref="user", uselist=False, cascade="all, delete-orphan")
+    routine_versions = db.relationship(
+        "RoutineVersion",
+        backref="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+        order_by="RoutineVersion.version_number.desc()",
+    )
     shares = db.relationship("CommunityShare", backref="user", lazy="dynamic", cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
@@ -83,3 +90,21 @@ class CommunityShare(db.Model):
     morning_routine = db.Column(db.Text, nullable=False)
     evening_routine = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+
+
+class RoutineVersion(db.Model):
+    """היסטוריית גרסאות שגרה לכל משתמש."""
+
+    __tablename__ = "routine_versions"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    version_number = db.Column(db.Integer, nullable=False)
+    morning_text = db.Column(db.Text, nullable=False, default="")
+    evening_text = db.Column(db.Text, nullable=False, default="")
+    generated_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    used_openai = db.Column(db.Boolean, default=False)
+    answers_json = db.Column(db.Text, nullable=False, default="{}")
+
+    def set_answers(self, data: dict) -> None:
+        self.answers_json = json.dumps(data, ensure_ascii=False)

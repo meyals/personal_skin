@@ -21,9 +21,7 @@ class ShareForm(FlaskForm):
 
 @community_bp.route("/community")
 def community_feed():
-    shares = (
-        CommunityShare.query.order_by(CommunityShare.created_at.desc()).limit(50).all()
-    )
+    shares = CommunityShare.query.order_by(CommunityShare.created_at.desc()).all()
     form = None
     if current_user.is_authenticated:
         form = ShareForm()

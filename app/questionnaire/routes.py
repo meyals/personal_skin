@@ -17,7 +17,7 @@ from wtforms.validators import DataRequired, NumberRange, Optional
 from wtforms.widgets import CheckboxInput, ListWidget
 
 from app.extensions import db
-from app.models import Routine, SkinProfile
+from app.models import Routine, RoutineVersion, SkinProfile
 from app.services.routine_ai import generate_routine
 
 questionnaire_bp = Blueprint("questionnaire", __name__)
@@ -221,6 +221,27 @@ def _answers_to_dict(form: SkinQuestionnaireForm) -> dict:
     }
 
 
+def _hydrate_form_from_answers(form: SkinQuestionnaireForm, answers: dict) -> None:
+    form.skin_type.data = answers.get("skin_type")
+    form.age_range.data = answers.get("age_range")
+    form.concerns.data = list(answers.get("concerns") or [])
+    form.sensitivities.data = list(answers.get("sensitivities") or [])
+    form.goals.data = list(answers.get("goals") or [])
+    form.budget.data = answers.get("budget")
+    form.time_morning.data = answers.get("time_morning")
+    form.time_evening.data = answers.get("time_evening")
+    form.climate.data = answers.get("climate")
+    form.water_hard.data = answers.get("water_hard")
+    form.sun_exposure.data = answers.get("sun_exposure")
+    form.makeup_frequency.data = answers.get("makeup_frequency")
+    form.spf_habit.data = answers.get("spf_habit")
+    form.exfoliation.data = answers.get("exfoliation")
+    form.retinol.data = answers.get("retinol")
+    form.pregnancy.data = answers.get("pregnancy")
+    form.uses_actives.data = bool(answers.get("uses_actives"))
+    form.notes.data = answers.get("notes")
+
+
 def _summary_label(answers: dict) -> str:
     st = answers.get("skin_type", "")
     mapping = dict(_choices_skin()[1:])
@@ -238,10 +259,12 @@ def _summary_label(answers: dict) -> str:
 def show_questionnaire():
     form = SkinQuestionnaireForm()
     _init_form_choices(form)
+    prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
+    if prof and form.is_submitted() is False:
+        _hydrate_form_from_answers(form, prof.get_answers())
 
     if form.validate_on_submit():
         answers = _answers_to_dict(form)
-        prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
         if prof is None:
             prof = SkinProfile(user_id=current_user.id)
             db.session.add(prof)
@@ -256,9 +279,31 @@ def show_questionnaire():
         r.morning_text = m_text
         r.evening_text = e_text
         r.used_openai = used_ai
+
+        prev_version = (
+            RoutineVersion.query.filter_by(user_id=current_user.id)
+            .order_by(RoutineVersion.version_number.desc())
+            .first()
+        )
+        next_version = (prev_version.version_number + 1) if prev_version else 1
+        rv = RoutineVersion(
+            user_id=current_user.id,
+            version_number=next_version,
+            morning_text=m_text,
+            evening_text=e_text,
+            used_openai=used_ai,
+        )
+        rv.set_answers(answers)
+        db.session.add(rv)
         db.session.commit()
-        flash("השאלון נשמר ונוצרה שגרה מותאמת אישית.", "success")
+        flash(f"השאלון נשמר ונוצרה שגרה מותאמת אישית (גרסה {next_version}).", "success")
         return redirect(url_for("questionnaire.view_routine"))
+
+    if form.is_submitted():
+        flash(
+            "מילאת את השאלון באופן חלקי, מלאי באופן מלא על מנת לקבל את השגרה שלך!",
+            "warning",
+        )
 
     return render_template("questionnaire/form.html", form=form)
 
@@ -268,6 +313,11 @@ def show_questionnaire():
 def view_routine():
     r = Routine.query.filter_by(user_id=current_user.id).first()
     prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
+    latest_version = (
+        RoutineVersion.query.filter_by(user_id=current_user.id)
+        .order_by(RoutineVersion.version_number.desc())
+        .first()
+    )
     if not r or not prof:
         flash("עדיין לא מולא שאלון — נא למלא את השאלון.", "warning")
         return redirect(url_for("questionnaire.show_questionnaire"))
@@ -276,4 +326,5 @@ def view_routine():
         routine=r,
         profile=prof,
         answers=prof.get_answers(),
+        latest_version=latest_version,
     )
