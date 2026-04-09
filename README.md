@@ -94,7 +94,8 @@ py -3 -m flask run --host 127.0.0.1 --port 5000
 
 - `render.yaml` — הגדרת שירות Render (build/start/env).
 - `wsgi.py` — נקודת כניסה לשרת production (`wsgi:app`).
-- `gunicorn` נוסף ל־`requirements.txt`.
+- `gunicorn` ו־`psycopg2-binary` נוספו ל־`requirements.txt`.
+- בסיס נתונים מנוהל (`Render Postgres`) מוגדר ב־`render.yaml` ומחובר דרך `DATABASE_URL`.
 
 ### שלבי Deploy
 
@@ -113,6 +114,7 @@ py -3 -m flask run --host 127.0.0.1 --port 5000
 - URL של Render הוא קבוע כל עוד שם השירות נשאר קבוע.
 - כדי שהשירות יהיה פעיל **24/7 ללא sleep**, השתמשו בתוכנית בתשלום (למשל `Starter`).
 - בתוכניות חינמיות שירותים עשויים \"להירדם\" לאחר חוסר פעילות.
+- כדי שכל המשתמשים יראו אותם שיתופים מכל מחשב, חובה לעבוד עם `DATABASE_URL` של Postgres (ולא SQLite מקומי).
 
 ---
 

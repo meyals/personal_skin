@@ -11,3 +11,4 @@ openai>=1.40.0
 markdown>=3.6
 bleach>=6.1.0
 gunicorn>=22.0.0
+psycopg2-binary>=2.9.9
