@@ -7,6 +7,7 @@ from wtforms.validators import DataRequired, Length
 
 from app.extensions import db
 from app.models import CommunityShare, Routine, SkinProfile
+from app.services.audit_logger import log_audit_event
 
 community_bp = Blueprint("community", __name__, url_prefix="")
 
@@ -33,6 +34,12 @@ def community_feed():
 def share_post():
     form = ShareForm()
     if not form.validate_on_submit():
+        log_audit_event(
+            "community.share_failed",
+            level="warning",
+            user_id=current_user.id,
+            reason="invalid_form",
+        )
         for err in form.display_name.errors:
             flash(err, "danger")
         return redirect(url_for("community.community_feed"))
@@ -40,6 +47,12 @@ def share_post():
     prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
     r = Routine.query.filter_by(user_id=current_user.id).first()
     if not prof or not r:
+        log_audit_event(
+            "community.share_failed",
+            level="warning",
+            user_id=current_user.id,
+            reason="missing_profile_or_routine",
+        )
         flash("יש למלא שאלון וליצור שגרה לפני שיתוף.", "warning")
         return redirect(url_for("questionnaire.show_questionnaire"))
 
@@ -61,5 +74,11 @@ def share_post():
     )
     db.session.add(post)
     db.session.commit()
+    log_audit_event(
+        "community.share_success",
+        user_id=current_user.id,
+        share_id=post.id,
+        display_name=post.display_name,
+    )
     flash("השיתוף פורסם בהצלחה.", "success")
     return redirect(url_for("community.community_feed"))

@@ -18,6 +18,7 @@ from wtforms.widgets import CheckboxInput, ListWidget
 
 from app.extensions import db
 from app.models import Routine, RoutineVersion, SkinProfile
+from app.services.audit_logger import log_audit_event
 from app.services.routine_ai import generate_routine
 
 questionnaire_bp = Blueprint("questionnaire", __name__)
@@ -296,10 +297,21 @@ def show_questionnaire():
         rv.set_answers(answers)
         db.session.add(rv)
         db.session.commit()
+        log_audit_event(
+            "questionnaire.submit_success",
+            user_id=current_user.id,
+            routine_version=next_version,
+            used_openai=used_ai,
+        )
         flash(f"השאלון נשמר ונוצרה שגרה מותאמת אישית (גרסה {next_version}).", "success")
         return redirect(url_for("questionnaire.view_routine"))
 
     if form.is_submitted():
+        log_audit_event(
+            "questionnaire.submit_partial",
+            level="warning",
+            user_id=current_user.id,
+        )
         flash(
             "מילאת את השאלון באופן חלקי, מלאי באופן מלא על מנת לקבל את השגרה שלך!",
             "warning",

@@ -10,6 +10,7 @@ from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationE
 
 from app.extensions import db, login_manager
 from app.models import User
+from app.services.audit_logger import log_audit_event
 
 auth_bp = Blueprint("auth", __name__, url_prefix="")
 
@@ -70,13 +71,21 @@ def login():
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.strip().lower()).first()
+        email = form.email.data.strip().lower()
+        user = User.query.filter_by(email=email).first()
         if user is None or not user.check_password(form.password.data):
+            log_audit_event(
+                "auth.login_failed",
+                level="warning",
+                email=email,
+                reason="invalid_credentials",
+            )
             flash("אימייל או סיסמה שגויים.", "danger")
             return render_template("auth/login.html", form=form)
         user.last_login = datetime.now(timezone.utc)
         db.session.commit()
         login_user(user, remember=True)
+        log_audit_event("auth.login_success", user_id=user.id, email=user.email)
         next_url = request.args.get("next")
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
@@ -99,6 +108,7 @@ def register():
         db.session.add(u)
         db.session.commit()
         login_user(u, remember=True)
+        log_audit_event("auth.register_success", user_id=u.id, email=u.email)
         flash("נרשמת בהצלחה. עכשיו נמלא את שאלון העור.", "success")
         return redirect(url_for("questionnaire.show_questionnaire"))
     return render_template("auth/register.html", form=form)
@@ -110,12 +120,20 @@ def forgot_password():
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = ResetPasswordForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.strip().lower()).first()
+        email = form.email.data.strip().lower()
+        user = User.query.filter_by(email=email).first()
         if user is None:
+            log_audit_event(
+                "auth.password_reset_failed",
+                level="warning",
+                email=email,
+                reason="email_not_found",
+            )
             flash("לא נמצא משתמש עם האימייל הזה.", "danger")
             return render_template("auth/forgot_password.html", form=form)
         user.set_password(form.password.data)
         db.session.commit()
+        log_audit_event("auth.password_reset_success", user_id=user.id, email=user.email)
         flash("הסיסמה אופסה בהצלחה. ניתן להתחבר עם הסיסמה החדשה.", "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/forgot_password.html", form=form)
@@ -124,6 +142,7 @@ def forgot_password():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    log_audit_event("auth.logout", user_id=current_user.id, email=current_user.email)
     logout_user()
     flash("התנתקת בהצלחה.", "info")
     return redirect(url_for("auth.login"))
