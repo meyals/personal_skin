@@ -34,6 +34,7 @@ class User(UserMixin, db.Model):
         order_by="RoutineVersion.version_number.desc()",
     )
     shares = db.relationship("CommunityShare", backref="user", lazy="dynamic", cascade="all, delete-orphan")
+    share_reactions = db.relationship("CommunityReaction", backref="user", lazy="dynamic", cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -90,6 +91,25 @@ class CommunityShare(db.Model):
     morning_routine = db.Column(db.Text, nullable=False)
     evening_routine = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    reactions = db.relationship("CommunityReaction", backref="share", lazy="dynamic", cascade="all, delete-orphan")
+
+
+class CommunityReaction(db.Model):
+    """תגובת לייק/דיסלייק של משתמש על שיתוף בקהילה."""
+
+    __tablename__ = "community_reactions"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    share_id = db.Column(db.String(36), db.ForeignKey("community_shares.id"), nullable=False, index=True)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    # 1=like, -1=dislike
+    value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("share_id", "user_id", name="uq_share_user_reaction"),
+    )
 
 
 class RoutineVersion(db.Model):

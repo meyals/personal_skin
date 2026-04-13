@@ -37,6 +37,25 @@
       <div class="routine-body markdown-body">{{ s.morning_routine | markdown_safe }}</div>
       <h3 class="share-sub">שגרת ערב</h3>
       <div class="routine-body markdown-body">{{ s.evening_routine | markdown_safe }}</div>
+      {% set stats = reactions_map.get(s.id, {'likes': 0, 'dislikes': 0}) %}
+      <div class="reaction-row">
+        <span class="reaction-count">לייקים: <strong>{{ stats.likes }}</strong></span>
+        <span class="reaction-count">דיסלייקים: <strong>{{ stats.dislikes }}</strong></span>
+      </div>
+      {% if current_user.is_authenticated and reaction_form %}
+      <div class="reaction-actions">
+        <form method="post" action="{{ url_for('community.react_to_share', share_id=s.id, action='like') }}">
+          {{ reaction_form.hidden_tag() }}
+          <button type="submit" aria-label="לייק" title="לייק" class="btn btn-ghost reaction-emoji{% if user_reactions.get(s.id) == 1 %} btn-active{% endif %}">👍</button>
+        </form>
+        <form method="post" action="{{ url_for('community.react_to_share', share_id=s.id, action='dislike') }}">
+          {{ reaction_form.hidden_tag() }}
+          <button type="submit" aria-label="דיסלייק" title="דיסלייק" class="btn btn-ghost reaction-emoji{% if user_reactions.get(s.id) == -1 %} btn-active{% endif %}">👎</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="muted"><a href="{{ url_for('auth.login') }}">התחברי</a> כדי לסמן לייק או דיסלייק.</p>
+      {% endif %}
     </article>
     {% endfor %}
   </div>
