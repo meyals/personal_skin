@@ -1,4 +1,10 @@
-"""הרשמה והתחברות."""
+"""ראוטים לאימות משתמשים: הרשמה, התחברות, איפוס סיסמה והתנתקות.
+
+המודול מרכז את כל תהליכי ה-auth באפליקציה:
+- ולידציה על נתוני טפסים.
+- עבודה מול מודל המשתמש בבסיס הנתונים.
+- רישום אירועים ל-audit לצורך תחקור ואבטחה.
+"""
 from datetime import datetime, timezone
 import re
 
@@ -16,6 +22,14 @@ auth_bp = Blueprint("auth", __name__, url_prefix="")
 
 
 def _validate_password_strength(form, field):
+    """ולידטור מותאם לחוזק סיסמה.
+
+    הכללים שנאכפים:
+    - מינימום 8 תווים.
+    - לפחות אות אחת באנגלית.
+    - לפחות ספרה אחת.
+    - לפחות תו מיוחד אחד.
+    """
     value = field.data or ""
     if len(value) < 8:
         raise ValidationError("הסיסמה חייבת להכיל לפחות 8 תווים.")
@@ -67,6 +81,14 @@ class ResetPasswordForm(FlaskForm):
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
+    """מסך התחברות וטיפול בשליחת טופס התחברות.
+
+    זרימה:
+    1. משתמש מחובר מועבר ישירות למסך השאלון.
+    2. ב-POST מתבצעת בדיקת אימייל/סיסמה.
+    3. בהצלחה: עדכון זמן התחברות אחרון, התחברות בפועל וניתוב למסך הבא.
+    4. בכישלון: הודעה למשתמש + audit עם סיבת כישלון.
+    """
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = LoginForm()
@@ -95,6 +117,13 @@ def login():
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
+    """מסך הרשמה למשתמש חדש.
+
+    לאחר הרשמה מוצלחת:
+    - המשתמש נשמר בבסיס הנתונים.
+    - מתבצעת התחברות אוטומטית.
+    - המשתמש מנותב ישירות לשאלון הראשוני.
+    """
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = RegisterForm()
@@ -116,6 +145,11 @@ def register():
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
+    """איפוס סיסמה באמצעות אימייל קיים במערכת.
+
+    הערה: זהו flow פנימי ופשוט (ללא קישור מייל חד-פעמי).
+    נעשה שימוש בכך בעיקר לפרויקט לימודי/דמו.
+    """
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = ResetPasswordForm()
@@ -142,6 +176,7 @@ def forgot_password():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    """התנתקות משתמש נוכחי וחזרה למסך התחברות."""
     log_audit_event("auth.logout", user_id=current_user.id, email=current_user.email)
     logout_user()
     flash("התנתקת בהצלחה.", "info")

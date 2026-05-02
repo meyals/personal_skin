@@ -15,7 +15,13 @@ except ImportError:
 
 
 def _build_fallback_routine(answers: dict[str, Any]) -> tuple[str, str, bool]:
-    """שגרה מובנית בעברית לפי תשובות (ללא API)."""
+    """בונה שגרת ברירת מחדל לוקאלית כאשר אין שימוש ב-OpenAI.
+
+    הפונקציה מפיקה טקסט מובנה ל"בוקר" ול"ערב" לפי כללי אצבע פשוטים:
+    - התאמה לסוג עור.
+    - התאמה לחששות עיקריים.
+    - התחשבות ברגישויות בסיסיות (למשל הימנעות מבישום).
+    """
     skin = answers.get("skin_type") or "normal"
     concerns = answers.get("concerns") or []
     sens = answers.get("sensitivities") or []
@@ -70,7 +76,14 @@ def _build_fallback_routine(answers: dict[str, Any]) -> tuple[str, str, bool]:
 
 def generate_routine(answers: dict[str, Any]) -> tuple[str, str, bool]:
     """
-    מחזיר: (טקסט בוקר, טקסט ערב, האם נוצר עם OpenAI).
+    יוצר שגרת טיפוח מותאמת ומחזיר:
+    (טקסט בוקר, טקסט ערב, האם נוצר עם OpenAI).
+
+    סדר העבודה:
+    1. אם אין מפתח API או שאין SDK זמין - חזרה למסלול fallback.
+    2. בניית prompt לפי נתוני המשתמש.
+    3. ניסיון לפצל את התשובה לחלקי בוקר/ערב.
+    4. בכל תקלה - חזרה בטוחה ל-fallback כדי לא לפגוע בחוויית המשתמש.
     """
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key or OpenAI is None:
@@ -112,6 +125,7 @@ def generate_routine(answers: dict[str, Any]) -> tuple[str, str, bool]:
 
 
 def _format_answers_for_prompt(a: dict[str, Any]) -> str:
+    """ממיר מילון תשובות לפורמט טקסט ידידותי לשילוב בתוך prompt."""
     lines = []
     for k, v in a.items():
         lines.append(f"- {k}: {v}")
@@ -119,7 +133,11 @@ def _format_answers_for_prompt(a: dict[str, Any]) -> str:
 
 
 def _split_morning_evening(text: str) -> tuple[str, str]:
-    """מנסה לפצל תשובה אחת לשני חלקים."""
+    """מפצל תשובה חופשית לשני חלקים: בוקר וערב.
+
+    הפיצול מתבסס בעיקר על כותרות/מילות מפתח.
+    אם לא נמצאה חלוקה ברורה, מתבצע fallback פשוט של חצי-חצי.
+    """
     lower = text.lower()
     if "##" in text or "בוקר" in text or "ערב" in text:
         parts = text.split("##")

@@ -1,4 +1,10 @@
-"""Asynchronous audit/error logging using a dedicated worker thread."""
+"""תיעוד אירועי מערכת (Audit) בצורה אסינכרונית.
+
+למה זה חשוב:
+- שמירה על ביצועי בקשות HTTP (הכתיבה ללוג לא חוסמת את ה-request).
+- תיעוד אירועי אבטחה/שגיאה לצורך ניטור ותחקור.
+- מנגנון מרכזי אחד שכל המודולים יכולים להשתמש בו.
+"""
 from __future__ import annotations
 
 import json
@@ -18,10 +24,12 @@ _stop_event = Event()
 
 
 def _utc_now() -> str:
+    """מחזיר חותמת זמן UTC בפורמט ISO-8601."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _log_file_path() -> str:
+    """מייצר נתיב לקובץ audit.log ודואג שתיקיית logs תתקיים."""
     base = os.path.abspath(os.getcwd())
     logs_dir = os.path.join(base, "logs")
     os.makedirs(logs_dir, exist_ok=True)
@@ -29,6 +37,7 @@ def _log_file_path() -> str:
 
 
 def _build_logger() -> logging.Logger:
+    """יוצר/מחזיר logger ייעודי עם סבב קבצים (RotatingFileHandler)."""
     logger = logging.getLogger("personal_skin.audit")
     if logger.handlers:
         return logger
@@ -41,6 +50,7 @@ def _build_logger() -> logging.Logger:
 
 
 def _worker(app: Flask) -> None:
+    """לולאת worker שרצה ברקע וקולטת אירועים מהתור לכתיבה לקובץ."""
     logger = _build_logger()
     with app.app_context():
         while not _stop_event.is_set():
@@ -55,6 +65,10 @@ def _worker(app: Flask) -> None:
 
 
 def init_async_audit_logger(app: Flask) -> None:
+    """מאתחל thread יחיד לכתיבת audit events ברקע.
+
+    הגנה מובנית מונעת הפעלה כפולה במקרה שהפונקציה נקראת יותר מפעם אחת.
+    """
     global _started
     if _started:
         return
@@ -64,6 +78,13 @@ def init_async_audit_logger(app: Flask) -> None:
 
 
 def log_audit_event(event_type: str, level: str = "info", **data: Any) -> None:
+    """דוחף אירוע חדש לתור הכתיבה האסינכרוני.
+
+    Args:
+        event_type: מזהה אירוע לוגי (למשל auth.login_success).
+        level: רמת חומרה לוגית (info/warning/error).
+        **data: נתונים נוספים לפי הקשר האירוע (user_id, reason ועוד).
+    """
     payload = {
         "timestamp": _utc_now(),
         "event_type": event_type,

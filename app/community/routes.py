@@ -1,4 +1,10 @@
-"""דף קהילה — צפייה בשיתופים ושיתוף פרופיל ושגרה."""
+"""ראוטים לפיצ'ר הקהילה: שיתוף שגרות ותגובות משתמשים.
+
+המודול מאפשר:
+- צפייה בפיד שיתופים ציבוריים.
+- פרסום שיתוף חדש מתוך פרופיל ושגרה אישיים.
+- תגובות Like/Dislike לכל שיתוף.
+"""
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
@@ -14,6 +20,7 @@ community_bp = Blueprint("community", __name__, url_prefix="")
 
 
 class ShareForm(FlaskForm):
+    """טופס פרסום שיתוף חדש בקהילה."""
     display_name = StringField(
         "שם לתצוגה בקהילה",
         validators=[DataRequired(), Length(min=2, max=80)],
@@ -22,11 +29,18 @@ class ShareForm(FlaskForm):
 
 
 class ReactionForm(FlaskForm):
+    """טופס מינימלי לאימות POST עם CSRF בעת לחיצה על תגובה."""
     submit = SubmitField("שלחי תגובה")
 
 
 @community_bp.route("/community")
 def community_feed():
+    """מציג את פיד הקהילה.
+
+    בנוסף לרשימת השיתופים, הפונקציה מחשבת:
+    - סכימת לייקים/דיסלייקים לכל שיתוף.
+    - סטטוס התגובה הנוכחית של המשתמש המחובר (אם קיים).
+    """
     shares = CommunityShare.query.order_by(CommunityShare.created_at.desc()).all()
     share_ids = [s.id for s in shares]
     reactions_map: dict[str, dict[str, int]] = {}
@@ -72,6 +86,11 @@ def community_feed():
 @community_bp.route("/community/share", methods=["POST"])
 @login_required
 def share_post():
+    """יוצר פוסט קהילה חדש מתוך הנתונים האישיים של המשתמש.
+
+    הפוסט נשמר כצילום מצב (snapshot) של הפרופיל והשגרה בזמן השיתוף,
+    כדי שהמידע יישאר עקבי גם אם המשתמש יעדכן את השגרה בעתיד.
+    """
     form = ShareForm()
     if not form.validate_on_submit():
         log_audit_event(
@@ -127,6 +146,13 @@ def share_post():
 @community_bp.route("/community/react/<share_id>/<action>", methods=["POST"])
 @login_required
 def react_to_share(share_id: str, action: str):
+    """טיפול בלייק/דיסלייק על שיתוף קיים.
+
+    לוגיקה עסקית:
+    - תגובה ראשונה יוצרת רשומה חדשה.
+    - לחיצה על אותה תגובה שוב מבטלת אותה (toggle off).
+    - מעבר מתגובה אחת לשנייה מעדכן את הערך.
+    """
     form = ReactionForm()
     if not form.validate_on_submit():
         flash("לא ניתן לעדכן תגובה כרגע. נסי שוב.", "danger")
