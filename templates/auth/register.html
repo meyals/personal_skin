@@ -3,6 +3,7 @@
 {% block content %}
 <div class="card narrow">
   <h1>הרשמה</h1>
+  <p class="muted small">ההרשמה נשלחת לשרת אימות TCP (פורט 5050) — לא ישירות ל-HTTP REST.</p>
   <p class="muted">סיסמה חייבת להכיל לפחות 8 תווים, אותיות באנגלית, מספרים ותו מיוחד.</p>
   <form method="post" class="form-grid" novalidate>
     {{ form.hidden_tag() }}

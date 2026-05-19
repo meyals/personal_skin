@@ -1,11 +1,8 @@
-"""ראוטים לאימות משתמשים: הרשמה, התחברות, איפוס סיסמה והתנתקות.
+"""ראוטים לאימות משתמשים — ממשק Web (Flask) + תקשורת TCP לשרת אימות.
 
-המודול מרכז את כל תהליכי ה-auth באפליקציה:
-- ולידציה על נתוני טפסים.
-- עבודה מול מודל המשתמש בבסיס הנתונים.
-- רישום אירועים ל-audit לצורך תחקור ואבטחה.
+login / register / reset_password עוברים דרך שרת סוקטים נפרד (run_auth_server.py).
+לאחר אימות מוצלח בשרת הסוקטים, Flask יוצר סשן (Flask-Login) כמו קודם.
 """
-from datetime import datetime, timezone
 import re
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -14,31 +11,19 @@ from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField, SubmitField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
 
-from app.extensions import db, login_manager
+from app.auth.validation import password_strength_error
+from app.extensions import db
 from app.models import User
 from app.services.audit_logger import log_audit_event
+from app.socket_auth.client import auth_socket_request
 
 auth_bp = Blueprint("auth", __name__, url_prefix="")
 
 
 def _validate_password_strength(form, field):
-    """ולידטור מותאם לחוזק סיסמה.
-
-    הכללים שנאכפים:
-    - מינימום 8 תווים.
-    - לפחות אות אחת באנגלית.
-    - לפחות ספרה אחת.
-    - לפחות תו מיוחד אחד.
-    """
-    value = field.data or ""
-    if len(value) < 8:
-        raise ValidationError("הסיסמה חייבת להכיל לפחות 8 תווים.")
-    if not re.search(r"[A-Za-z]", value):
-        raise ValidationError("הסיסמה חייבת להכיל לפחות אות אחת באנגלית.")
-    if not re.search(r"\d", value):
-        raise ValidationError("הסיסמה חייבת להכיל לפחות מספר אחד.")
-    if not re.search(r"[^A-Za-z0-9]", value):
-        raise ValidationError("הסיסמה חייבת להכיל לפחות תו מיוחד אחד.")
+    err = password_strength_error(field.data or "")
+    if err:
+        raise ValidationError(err)
 
 
 class LoginForm(FlaskForm):
@@ -61,10 +46,6 @@ class RegisterForm(FlaskForm):
     )
     submit = SubmitField("הרשמה")
 
-    def validate_email(self, field):
-        if User.query.filter_by(email=field.data.strip().lower()).first():
-            raise ValidationError("כתובת האימייל כבר רשומה במערכת.")
-
 
 class ResetPasswordForm(FlaskForm):
     email = StringField("אימייל", validators=[DataRequired(), Email()])
@@ -79,33 +60,44 @@ class ResetPasswordForm(FlaskForm):
     submit = SubmitField("איפוס סיסמה")
 
 
+def _login_user_from_socket_response(resp: dict) -> User | None:
+    user_data = resp.get("user") or {}
+    user_id = user_data.get("user_id")
+    if not user_id:
+        return None
+    return db.session.get(User, user_id)
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    """מסך התחברות וטיפול בשליחת טופס התחברות.
-
-    זרימה:
-    1. משתמש מחובר מועבר ישירות למסך השאלון.
-    2. ב-POST מתבצעת בדיקת אימייל/סיסמה.
-    3. בהצלחה: עדכון זמן התחברות אחרון, התחברות בפועל וניתוב למסך הבא.
-    4. בכישלון: הודעה למשתמש + audit עם סיבת כישלון.
-    """
+    """התחברות — הלקוח (Flask) שולח בקשה לשרת TCP לאימות."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = LoginForm()
     if form.validate_on_submit():
         email = form.email.data.strip().lower()
-        user = User.query.filter_by(email=email).first()
-        if user is None or not user.check_password(form.password.data):
+        resp = auth_socket_request(
+            {
+                "action": "login",
+                "email": email,
+                "password": form.password.data,
+            }
+        )
+        if not resp.get("ok"):
             log_audit_event(
                 "auth.login_failed",
                 level="warning",
                 email=email,
-                reason="invalid_credentials",
+                reason=resp.get("error", "socket_auth_failed"),
             )
-            flash("אימייל או סיסמה שגויים.", "danger")
+            flash(resp.get("message") or "אימייל או סיסמה שגויים.", "danger")
             return render_template("auth/login.html", form=form)
-        user.last_login = datetime.now(timezone.utc)
-        db.session.commit()
+
+        user = _login_user_from_socket_response(resp)
+        if user is None:
+            flash("שגיאה בטעינת המשתמש אחרי אימות.", "danger")
+            return render_template("auth/login.html", form=form)
+
         login_user(user, remember=True)
         log_audit_event("auth.login_success", user_id=user.id, email=user.email)
         next_url = request.args.get("next")
@@ -117,27 +109,38 @@ def login():
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
-    """מסך הרשמה למשתמש חדש.
-
-    לאחר הרשמה מוצלחת:
-    - המשתמש נשמר בבסיס הנתונים.
-    - מתבצעת התחברות אוטומטית.
-    - המשתמש מנותב ישירות לשאלון הראשוני.
-    """
+    """הרשמה — נשלחת לשרת הסוקטים; Flask יוצר סשן לאחר הצלחה."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = RegisterForm()
     if form.validate_on_submit():
-        u = User(
-            email=form.email.data.strip().lower(),
-            first_name=(form.first_name.data or "").strip() or None,
-            last_name=(form.last_name.data or "").strip() or None,
+        email = form.email.data.strip().lower()
+        resp = auth_socket_request(
+            {
+                "action": "register",
+                "email": email,
+                "password": form.password.data,
+                "first_name": (form.first_name.data or "").strip(),
+                "last_name": (form.last_name.data or "").strip(),
+            }
         )
-        u.set_password(form.password.data)
-        db.session.add(u)
-        db.session.commit()
-        login_user(u, remember=True)
-        log_audit_event("auth.register_success", user_id=u.id, email=u.email)
+        if not resp.get("ok"):
+            log_audit_event(
+                "auth.register_failed",
+                level="warning",
+                email=email,
+                reason=resp.get("error", "socket_auth_failed"),
+            )
+            flash(resp.get("message") or "ההרשמה נכשלה.", "danger")
+            return render_template("auth/register.html", form=form)
+
+        user = _login_user_from_socket_response(resp)
+        if user is None:
+            flash("שגיאה בטעינת המשתמש אחרי הרשמה.", "danger")
+            return render_template("auth/register.html", form=form)
+
+        login_user(user, remember=True)
+        log_audit_event("auth.register_success", user_id=user.id, email=user.email)
         flash("נרשמת בהצלחה. עכשיו נמלא את שאלון העור.", "success")
         return redirect(url_for("questionnaire.show_questionnaire"))
     return render_template("auth/register.html", form=form)
@@ -145,29 +148,34 @@ def register():
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
-    """איפוס סיסמה באמצעות אימייל קיים במערכת.
-
-    הערה: זהו flow פנימי ופשוט (ללא קישור מייל חד-פעמי).
-    נעשה שימוש בכך בעיקר לפרויקט לימודי/דמו.
-    """
+    """איפוס סיסמה — דרך שרת הסוקטים."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = ResetPasswordForm()
     if form.validate_on_submit():
         email = form.email.data.strip().lower()
-        user = User.query.filter_by(email=email).first()
-        if user is None:
+        resp = auth_socket_request(
+            {
+                "action": "reset_password",
+                "email": email,
+                "password": form.password.data,
+            }
+        )
+        if not resp.get("ok"):
             log_audit_event(
                 "auth.password_reset_failed",
                 level="warning",
                 email=email,
-                reason="email_not_found",
+                reason=resp.get("error", "socket_auth_failed"),
             )
-            flash("לא נמצא משתמש עם האימייל הזה.", "danger")
+            flash(resp.get("message") or "איפוס הסיסמה נכשל.", "danger")
             return render_template("auth/forgot_password.html", form=form)
-        user.set_password(form.password.data)
-        db.session.commit()
-        log_audit_event("auth.password_reset_success", user_id=user.id, email=user.email)
+
+        log_audit_event(
+            "auth.password_reset_success",
+            user_id=(resp.get("user") or {}).get("user_id"),
+            email=email,
+        )
         flash("הסיסמה אופסה בהצלחה. ניתן להתחבר עם הסיסמה החדשה.", "success")
         return redirect(url_for("auth.login"))
     return render_template("auth/forgot_password.html", form=form)
@@ -176,7 +184,7 @@ def forgot_password():
 @auth_bp.route("/logout")
 @login_required
 def logout():
-    """התנתקות משתמש נוכחי וחזרה למסך התחברות."""
+    """התנתקות — מקומית ב-Flask (סשן בדפדפן)."""
     log_audit_event("auth.logout", user_id=current_user.id, email=current_user.email)
     logout_user()
     flash("התנתקת בהצלחה.", "info")

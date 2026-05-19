@@ -3,6 +3,7 @@
 {% block content %}
 <div class="card narrow">
   <h1>התחברות</h1>
+  <p class="muted small">אימות מתבצע מול שרת TCP נפרד (פורט 5050) — ארכיטקטורת שרת-לקוח.</p>
   <form method="post" class="form-grid" novalidate>
     {{ form.hidden_tag() }}
     <label>{{ form.email.label }}{{ form.email(class="input") }}</label>

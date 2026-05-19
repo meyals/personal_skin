@@ -22,6 +22,9 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _database_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     WTF_CSRF_ENABLED = True
+    # שרת אימות TCP (לקוח Flask מתחבר לכאן)
+    AUTH_SOCKET_HOST = os.environ.get("AUTH_SOCKET_HOST", "127.0.0.1")
+    AUTH_SOCKET_PORT = int(os.environ.get("AUTH_SOCKET_PORT", "5050"))
 
 
 class DevelopmentConfig(Config):

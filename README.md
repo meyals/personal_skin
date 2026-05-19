@@ -254,15 +254,20 @@ Medical notice: generated skincare guidance is informational and does not replac
 
 ### 2) מערכת שרת-לקוח
 
-המערכת ממומשת כיישום Web בתצורת שרת-לקוח:
+המערכת ממומשת בתצורת **שרת-לקוח מפורשת** עם שני שכבות:
 
-- **שרת**: Flask (Python), כולל ניתוב בקבצי:
-  - `app/auth/routes.py`
-  - `app/questionnaire/routes.py`
-  - `app/community/routes.py`
-- **לקוח**: דפדפן אינטרנט (HTML/CSS ב־`templates/` + `static/css/`).
-- **פרוטוקול תקשורת**: HTTP/HTTPS בין לקוח לשרת.
-- **תמיכה במספר משתמשים**: השרת מטפל בבקשות של משתמשים שונים, עם סשן נפרד לכל משתמש דרך Flask-Login.
+**אימות (login / register / reset_password) — TCP sockets**
+
+- **שרת אימות**: `run_auth_server.py` → `app/socket_auth/server.py` — מאזין על TCP (ברירת מחדל פורט **5050**), פרוטוקול JSON (אורך 4 בתים + גוף).
+- **לקוח אימות**: `app/socket_auth/client.py` — Flask שולח בקשות TCP לשרת בעת שליחת טפסי התחברות/הרשמה.
+- **הדגמה ממחשב שני**: `socket_auth_client_demo.py` (שורת פקודה).
+
+**שאר האפליקציה — HTTP (Flask Web)**
+
+- **שרת Web**: Flask — `app/questionnaire/routes.py`, `app/community/routes.py`, וממשק HTML ל-auth.
+- **לקוח**: דפדפן (HTML/CSS ב־`templates/` + `static/css/`).
+- **פרוטוקול**: HTTP/HTTPS לדפים ולשאלון/קהילה; TCP ל-auth בלבד.
+- **סשן**: לאחר אימות מוצלח בשרת הסוקטים, Flask-Login יוצר סשן בדפדפן.
 
 ### 3) שימוש בבינה מלאכותית (בונוס)
 
@@ -386,11 +391,17 @@ py -3 -m pip install -r requirements.txt
 
 ### הפעלה (הרצת שרת הפיתוח)
 
+**חובה — שני תהליכים** (טרמינלים נפרדים, או `.\run_both.ps1`):
+
+```text
+py -3 run_auth_server.py
+```
+
 ```text
 py -3 run.py
 ```
 
-ברירת המחדל: `http://127.0.0.1:5000` — `debug=True` (שרת הפיתוח של Flask).
+ברירת המחדל: Web על `http://0.0.0.0:5000`, אימות TCP על `0.0.0.0:5050`. משתני סביבה: `AUTH_SOCKET_HOST`, `AUTH_SOCKET_PORT` (ראו `.env.example`).
 
 אלטרנטיבה מקובלת:
 
