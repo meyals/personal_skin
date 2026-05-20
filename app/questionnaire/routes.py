@@ -32,7 +32,7 @@ questionnaire_bp = Blueprint("questionnaire", __name__)
 
 
 def _choices_skin():
-    """אפשרויות לסוג עור כפי שמוצגות למשתמש בטופס."""
+    """רשימת אפשרויות לשדה 'סוג עור' בטופס השאלון."""
     return [
         ("", "— בחרי —"),
         ("dry", "יבש"),
@@ -81,12 +81,9 @@ def _goals():
 
 
 class SkinQuestionnaireForm(FlaskForm):
-    """הגדרת טופס שאלון העור.
+    """טופס שאלון העור — כל השדות נשמרים כ-JSON ב-SkinProfile.
 
-    הטופס כולל:
-    - מאפייני עור בסיסיים (סוג עור, גיל, חששות, מטרות).
-    - אילוצי שימוש (זמן, תקציב, אקלים, הרגלי SPF).
-    - שדות בטיחותיים (הריון/הנקה, שימוש בחומרים פעילים).
+    אחרי שליחה תקינה: generate_routine() יוצר שגרת בוקר/ערב (AI או גיבוי).
     """
     skin_type = SelectField("סוג עור עיקרי", choices=[], validators=[DataRequired(message="נא לבחור סוג עור")])
     age_range = SelectField(

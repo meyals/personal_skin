@@ -1,34 +1,45 @@
-"""שרת TCP לאימות — thread לכל לקוח."""
+"""שרת TCP לאימות — מאזין לחיבורים ומטפל ב-login/register/reset.
+
+ארכיטקטורה:
+- Process נפרד: run_auth_server.py
+- TCP SOCK_STREAM (מעל IP)
+- Thread נפרד לכל לקוח מחובר
+- גישה ל-DB דרך Flask app context (ORM)
+"""
 from __future__ import annotations
 
 import os
 import socket
-import traceback
 from threading import Thread
-from typing import TYPE_CHECKING
 
 from flask import Flask
 
 from app.socket_auth.handlers import handle_auth_request
 from app.socket_auth.protocol import recv_message, send_message
 
-if TYPE_CHECKING:
-    pass
-
-DEFAULT_BIND_HOST = "0.0.0.0"
+DEFAULT_BIND_HOST = "0.0.0.0"  # מאזין מכל ממשק רשת (גם מחשב שני)
 DEFAULT_PORT = 5050
 
 
 def _server_bind_config() -> tuple[str, int]:
+    """כתובת ופורט להאזנה — מ-env או ברירת מחדל."""
     host = (os.environ.get("AUTH_SOCKET_BIND_HOST") or DEFAULT_BIND_HOST).strip()
     port = int(os.environ.get("AUTH_SOCKET_PORT") or DEFAULT_PORT)
     return host, port
 
 
 def _handle_client(connection: socket.socket, address: tuple[str, int], app: Flask) -> None:
+    """מטפל בלקוח יחיד — רץ ב-thread נפרד.
+
+    זרימה:
+    1. קריאת JSON מהלקוח
+    2. handle_auth_request — בדיקה מול DB
+    3. שליחת תשובת JSON
+    4. סגירת חיבור (בקשה אחת לחיבור)
+    """
     peer = f"{address[0]}:{address[1]}"
     try:
-        with app.app_context():
+        with app.app_context():  # נדרש לגישה ל-SQLAlchemy
             while True:
                 try:
                     request = recv_message(connection)
@@ -50,14 +61,16 @@ def _handle_client(connection: socket.socket, address: tuple[str, int], app: Fla
                 except OSError:
                     break
 
-                # בקשה אחת לחיבור — מתאים ללקוח Flask שסוגר אחרי תשובה
-                break
+                break  # לקוח Flask סוגר אחרי תשובה אחת
     finally:
         connection.close()
 
 
 def run_auth_socket_server(app: Flask) -> None:
-    """מאזין לחיבורי TCP נכנסים (blocking — להרצה ב-process נפרד)."""
+    """לולאה ראשית — bind, listen, accept, הפעלת thread לכל לקוח.
+
+    חוסם עד Ctrl+C. מיועד לטרמינל נפרד מ-run.py.
+    """
     bind_host, port = _server_bind_config()
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

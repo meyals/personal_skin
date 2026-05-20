@@ -1,4 +1,11 @@
-"""לוגיקת אימות — רצה על שרת הסוקטים (גישה ישירה ל-DB)."""
+"""לוגיקת אימות על שרת הסוקטים — גישה ישירה למסד הנתונים (ORM).
+
+פעולות נתמכות (שדה action ב-JSON):
+- ping: בדיקת חיים
+- login: אימייל + סיסמה
+- register: הרשמה + hash סיסמה
+- reset_password: איפוס סיסמה לפי אימייל
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -11,6 +18,7 @@ from app.services.audit_logger import log_audit_event
 
 
 def _user_payload(user: User) -> dict[str, Any]:
+    """מחזיר נתוני משתמש בטוחים לתשובה (בלי סיסמה)."""
     return {
         "user_id": user.id,
         "email": user.email,
@@ -20,6 +28,7 @@ def _user_payload(user: User) -> dict[str, Any]:
 
 
 def handle_auth_request(request: dict[str, Any]) -> dict[str, Any]:
+    """מנתב בקשת JSON לפונקציה המתאימה לפי action."""
     action = (request.get("action") or "").strip().lower()
     if action == "ping":
         return {"ok": True, "message": "pong"}
@@ -35,6 +44,7 @@ def handle_auth_request(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _handle_login(request: dict[str, Any]) -> dict[str, Any]:
+    """בודק אימייל וסיסמה מול DB; מעדכן last_login בהצלחה."""
     email = (request.get("email") or "").strip().lower()
     password = request.get("password") or ""
     if not email or not password:
@@ -57,6 +67,7 @@ def _handle_login(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _handle_register(request: dict[str, Any]) -> dict[str, Any]:
+    """יוצר משתמש חדש — סיסמה נשמרת כ-hash."""
     email = (request.get("email") or "").strip().lower()
     password = request.get("password") or ""
     first_name = (request.get("first_name") or "").strip() or None
@@ -87,6 +98,7 @@ def _handle_register(request: dict[str, Any]) -> dict[str, Any]:
 
 
 def _handle_reset_password(request: dict[str, Any]) -> dict[str, Any]:
+    """מאפס סיסמה למשתמש קיים (דמו — ללא אימות במייל)."""
     email = (request.get("email") or "").strip().lower()
     password = request.get("password") or ""
 

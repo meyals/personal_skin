@@ -1,6 +1,6 @@
-"""לקוח שורת פקודה לבדיקת שרת האימות — להדגמה על מחשב שני בבחינה.
+"""לקוח שורת פקודה לבדיקת שרת האימות — להדגמה בבחינה (מחשב שני).
 
-דוגמה (מחשב 2, שרת על 192.168.1.10):
+דוגמה (שרת על 192.168.1.10):
     set AUTH_SOCKET_HOST=192.168.1.10
     py -3 socket_auth_client_demo.py ping
     py -3 socket_auth_client_demo.py register user@test.com MyPass1!
@@ -15,6 +15,7 @@ from app.socket_auth.client import auth_socket_request
 
 
 def main() -> None:
+    """בונה payload לפי argv ושולח לשרת הסוקטים."""
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)

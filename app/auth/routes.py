@@ -1,10 +1,13 @@
 """ראוטים לאימות משתמשים — ממשק Web (Flask) + תקשורת TCP לשרת אימות.
 
-login / register / reset_password עוברים דרך שרת סוקטים נפרד (run_auth_server.py).
-לאחר אימות מוצלח בשרת הסוקטים, Flask יוצר סשן (Flask-Login) כמו קודם.
-"""
-import re
+זרימת login/register:
+  1. משתמש שולח טופס (Flask-WTF + CSRF)
+  2. Flask שולח JSON לשרת סוקטים (auth_socket_request)
+  3. שרת בודק/שומר ב-DB ומחזיר תשובה
+  4. Flask יוצר סשן (login_user) ומפנה לשאלון
 
+logout מתבצע רק ב-Flask — מוחק את הסשן מהדפדפן.
+"""
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf import FlaskForm
@@ -21,18 +24,23 @@ auth_bp = Blueprint("auth", __name__, url_prefix="")
 
 
 def _validate_password_strength(form, field):
+    """ולידטור WTForms — דורש אות, ספרה ותו מיוחד (לפני שליחה לשרת)."""
     err = password_strength_error(field.data or "")
     if err:
         raise ValidationError(err)
 
 
 class LoginForm(FlaskForm):
+    """טופס התחברות — כולל אסימון CSRF אוטומטי (hidden_tag)."""
+
     email = StringField("אימייל", validators=[DataRequired(), Email()])
     password = PasswordField("סיסמה", validators=[DataRequired()])
     submit = SubmitField("התחברות")
 
 
 class RegisterForm(FlaskForm):
+    """טופס הרשמה — ולידציה מקומית + בדיקה בשרת (אימייל כפול)."""
+
     email = StringField("אימייל", validators=[DataRequired(), Email()])
     first_name = StringField("שם פרטי", validators=[Length(max=50)])
     last_name = StringField("שם משפחה", validators=[Length(max=50)])
@@ -48,6 +56,8 @@ class RegisterForm(FlaskForm):
 
 
 class ResetPasswordForm(FlaskForm):
+    """איפוס סיסמה לפי אימייל (ללא קישור במייל — דמו לימודי)."""
+
     email = StringField("אימייל", validators=[DataRequired(), Email()])
     password = PasswordField(
         "סיסמה חדשה",
@@ -61,6 +71,7 @@ class ResetPasswordForm(FlaskForm):
 
 
 def _login_user_from_socket_response(resp: dict) -> User | None:
+    """טוען את אובייקט User מ-DB אחרי תשובה מוצלחת מהשרת."""
     user_data = resp.get("user") or {}
     user_id = user_data.get("user_id")
     if not user_id:
@@ -70,7 +81,7 @@ def _login_user_from_socket_response(resp: dict) -> User | None:
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
-    """התחברות — הלקוח (Flask) שולח בקשה לשרת TCP לאימות."""
+    """GET: מציג טופס. POST: שולח לשרת סוקטים, יוצר סשן בהצלחה."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = LoginForm()
@@ -98,10 +109,10 @@ def login():
             flash("שגיאה בטעינת המשתמש אחרי אימות.", "danger")
             return render_template("auth/login.html", form=form)
 
-        login_user(user, remember=True)
+        login_user(user, remember=True)  # יוצר cookie סשן
         log_audit_event("auth.login_success", user_id=user.id, email=user.email)
         next_url = request.args.get("next")
-        if next_url and next_url.startswith("/"):
+        if next_url and next_url.startswith("/"):  # מניעת redirect חיצוני זדוני
             return redirect(next_url)
         return redirect(url_for("questionnaire.show_questionnaire"))
     return render_template("auth/login.html", form=form)
@@ -109,7 +120,7 @@ def login():
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
-    """הרשמה — נשלחת לשרת הסוקטים; Flask יוצר סשן לאחר הצלחה."""
+    """הרשמה דרך שרת סוקטים + התחברות אוטומטית + מעבר לשאלון."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = RegisterForm()
@@ -148,7 +159,7 @@ def register():
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
-    """איפוס סיסמה — דרך שרת הסוקטים."""
+    """איפוס סיסמה — נשלח לשרת הסוקטים (לא דורש התחברות)."""
     if current_user.is_authenticated:
         return redirect(url_for("questionnaire.show_questionnaire"))
     form = ResetPasswordForm()
@@ -184,7 +195,7 @@ def forgot_password():
 @auth_bp.route("/logout")
 @login_required
 def logout():
-    """התנתקות — מקומית ב-Flask (סשן בדפדפן)."""
+    """מסיר את הסשן מהדפדפן — לא קורא לשרת הסוקטים."""
     log_audit_event("auth.logout", user_id=current_user.id, email=current_user.email)
     logout_user()
     flash("התנתקת בהצלחה.", "info")

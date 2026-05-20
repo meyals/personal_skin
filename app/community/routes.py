@@ -47,6 +47,7 @@ def community_feed():
     user_reactions: dict[str, int] = {}
 
     if share_ids:
+        # שאילתת ORM אחת — סופרת לייקים/דיסלייקים לכל פוסט (במקום לולאה ב-Python)
         rows = (
             db.session.query(
                 CommunityReaction.share_id.label("share_id"),

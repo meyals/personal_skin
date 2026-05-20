@@ -1,4 +1,8 @@
-"""לקוח TCP — Flask (ולקוחות אחרים) שולחים בקשות אימות לשרת הסוקטים."""
+"""לקוח TCP — שולח בקשות אימות לשרת הסוקטים (פורט 5050).
+
+משמש את Flask (auth/routes.py) ואת socket_auth_client_demo.py להדגמה.
+Flask הוא לקוח Web; ב-login/register הוא גם לקוח Socket.
+"""
 from __future__ import annotations
 
 import os
@@ -13,15 +17,23 @@ CONNECT_TIMEOUT_SEC = 10
 
 
 def auth_socket_config() -> tuple[str, int]:
+    """קורא כתובת ופורט שרת האימות ממשתני סביבה."""
     host = (os.environ.get("AUTH_SOCKET_HOST") or DEFAULT_HOST).strip()
     port = int(os.environ.get("AUTH_SOCKET_PORT") or DEFAULT_PORT)
     return host, port
 
 
 def auth_socket_request(payload: dict[str, Any]) -> dict[str, Any]:
-    """שולח בקשת JSON לשרת האימות ומחזיר את התשובה."""
+    """פותח חיבור TCP, שולח JSON, מקבל תשובה וסוגר.
+
+    Args:
+        payload: למשל {"action": "login", "email": "...", "password": "..."}
+
+    Returns:
+        מילון תשובה מהשרת, או dict עם ok=False אם החיבור נכשל.
+    """
     host, port = auth_socket_config()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # TCP
     sock.settimeout(CONNECT_TIMEOUT_SEC)
     try:
         sock.connect((host, port))
