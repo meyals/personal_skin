@@ -1,3 +1,26 @@
+<!--
+=============================================================================
+קובץ: templates/questionnaire/routine.html
+שייך ל: צד לקוח (Client-Side) — דף תצוגת השגרה
+=============================================================================
+תפקיד הקובץ:
+    מציג את שגרת הטיפוח שנוצרה למשתמש (בוקר + ערב).
+    מוצג אחרי שליחת השאלון בהצלחה.
+
+    נתונים שמגיעים מהשרת (questionnaire/routes.py → view_routine):
+    - routine: אובייקט Routine (morning_text, evening_text, used_openai)
+    - profile: אובייקט SkinProfile (summary_label)
+    - answers: מילון תשובות השאלון
+    - latest_version: אובייקט RoutineVersion (version_number)
+
+    תכונות:
+    - סיכום פרופיל + badge שמציין אם נוצר עם AI או fallback
+    - מספר גרסה נוכחי
+    - שני עמודות: שגרת בוקר ושגרת ערב
+    - markdown_safe פילטר להמרת Markdown ל-HTML
+    - קישורים: עריכת שאלון מחדש, מעבר לקהילה
+=============================================================================
+-->
 {% extends "base.html" %}
 {% block title %}שגרת הטיפוח שלי — PersonalSkin{% endblock %}
 {% block content %}

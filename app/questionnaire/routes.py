@@ -1,10 +1,35 @@
-"""ראוטים לשאלון העור וליצירת שגרת טיפוח מותאמת אישית.
+"""
+=============================================================================
+קובץ: questionnaire/routes.py
+שייך ל: צד שרת (Server-Side)
+=============================================================================
+תפקיד הקובץ:
+    ראוטים לשאלון העור ולתצוגת שגרת הטיפוח.
+    זהו הליבה של האפליקציה — כאן המשתמש ממלא שאלון מפורט על העור שלו,
+    ובתמורה מקבל שגרת טיפוח מותאמת אישית (בוקר + ערב).
 
-המטרה של המודול:
-- להציג שאלון עשיר לאיסוף נתוני משתמש.
-- לשמור את התשובות בפרופיל המשתמש.
-- ליצור שגרת בוקר/ערב (AI או מנגנון גיבוי).
-- לשמור היסטוריית גרסאות של השגרה לאורך זמן.
+    ראוטים שמוגדרים כאן:
+    1. /questionnaire → הצגה ושמירה של שאלון העור (GET + POST)
+    2. /routine       → תצוגת השגרה שנוצרה (GET)
+
+זרימת העבודה (Flow):
+    1. המשתמש נכנס ל-/questionnaire (GET) → רואה טופס ריק (או מלא אם יש תשובות קודמות)
+    2. ממלא את כל השדות ולוחץ "שליחה" (POST)
+    3. Flask מפעיל ולידציה על הטופס (כל השדות מולאו? ערכים תקינים?)
+    4. התשובות נשמרות ב-SkinProfile (טבלת פרופיל עור)
+    5. generate_routine() → יוצר שגרת בוקר/ערב (AI או fallback)
+    6. השגרה נשמרת ב-Routine (שגרה נוכחית) + RoutineVersion (היסטוריה)
+    7. המשתמש מועבר ל-/routine לצפייה בשגרה
+
+טופס השאלון (SkinQuestionnaireForm):
+    שדות רבים ומגוונים:
+    - SelectField = תפריט נפתח (dropdown)
+    - SelectMultipleField = בחירה מרובה (checkboxes)
+    - RadioField = בחירה יחידה (radio buttons)
+    - IntegerField = מספר שלם
+    - BooleanField = כן/לא (checkbox)
+    - TextAreaField = טקסט חופשי
+=============================================================================
 """
 from __future__ import annotations
 
@@ -28,13 +53,20 @@ from app.models import Routine, RoutineVersion, SkinProfile
 from app.services.audit_logger import log_audit_event
 from app.services.routine_ai import generate_routine
 
+# ─── יצירת Blueprint לשאלון ──────────────────────────────────────────────────
 questionnaire_bp = Blueprint("questionnaire", __name__)
 
 
+# =============================================================================
+# רשימות בחירה — מוגדרות כפונקציות כדי שייטענו כל פעם מחדש
+# =============================================================================
+
 def _choices_skin():
-    """רשימת אפשרויות לשדה 'סוג עור' בטופס השאלון."""
+    """רשימת אפשרויות לשדה 'סוג עור' בטופס.
+    כל tuple = (ערך שנשמר ב-DB, טקסט שמוצג למשתמש)
+    """
     return [
-        ("", "— בחרי —"),
+        ("", "— בחרי —"),       # ברירת מחדל ריקה — מכריח את המשתמש לבחור
         ("dry", "יבש"),
         ("oily", "שומני"),
         ("normal", "רגיל / מאוזן"),
@@ -44,7 +76,7 @@ def _choices_skin():
 
 
 def _concerns():
-    """רשימת חששות/בעיות עור עיקריות לבחירה מרובה."""
+    """רשימת חששות/בעיות עור — המשתמש יכול לבחור כמה."""
     return [
         ("acne", "פצעונים / אקנה"),
         ("dryness", "יובש"),
@@ -59,7 +91,7 @@ def _concerns():
 
 
 def _sens():
-    """רשימת רגישויות לחומרים או סוגי מוצרים."""
+    """רשימת רגישויות לחומרים — משפיע על ההמלצות (הימנעות ממוצרים מסוימים)."""
     return [
         ("fragrance", "בשמים בקוסמטיקה"),
         ("alcohol", "אלכוהול דנaturing"),
@@ -70,7 +102,7 @@ def _sens():
 
 
 def _goals():
-    """רשימת מטרות טיפוח מרכזיות להעדפת המשתמש."""
+    """רשימת מטרות טיפוח — מה המשתמש רוצה להשיג."""
     return [
         ("hydration", "לחות"),
         ("anti_aging", "אנטי-אייג'ינג"),
@@ -80,12 +112,29 @@ def _goals():
     ]
 
 
+# =============================================================================
+# טופס השאלון — הטופס הגדול והמרכזי של האפליקציה
+# =============================================================================
 class SkinQuestionnaireForm(FlaskForm):
-    """טופס שאלון העור — כל השדות נשמרים כ-JSON ב-SkinProfile.
+    """טופס שאלון העור — כולל את כל השאלות על מאפייני העור.
 
-    אחרי שליחה תקינה: generate_routine() יוצר שגרת בוקר/ערב (AI או גיבוי).
+    כל השדות נשמרים כמילון JSON ב-SkinProfile.questionnaire_json.
+    אחרי שליחה תקינה, generate_routine() מייצר שגרת בוקר/ערב.
+
+    סוגי שדות:
+    - SelectField        = תפריט נפתח (dropdown) — בחירה אחת
+    - SelectMultipleField = רשימת checkboxes — בחירה מרובה
+    - RadioField         = כפתורי radio — בחירה אחת מתוך אפשרויות
+    - IntegerField       = מספר שלם (עם min/max)
+    - BooleanField       = תיבת סימון (checkbox) — כן/לא
+    - TextAreaField      = שדה טקסט חופשי (רב-שורתי)
     """
+
+    # ─── סוג עור ────────────────────────────────────────────────────────────
+    # choices=[] → ריק כאן, ימולא ב-_init_form_choices() (כדי לאפשר גמישות)
     skin_type = SelectField("סוג עור עיקרי", choices=[], validators=[DataRequired(message="נא לבחור סוג עור")])
+
+    # ─── טווח גיל ───────────────────────────────────────────────────────────
     age_range = SelectField(
         "טווח גיל",
         choices=[
@@ -99,6 +148,9 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── חששות עיקריים (בחירה מרובה) ────────────────────────────────────────
+    # ListWidget + CheckboxInput = מציג כ-checkboxes ולא כ-select רב-שורות
     concerns = SelectMultipleField(
         "חששות עיקריים (ניתן לבחור כמה)",
         choices=[],
@@ -106,13 +158,17 @@ class SkinQuestionnaireForm(FlaskForm):
         widget=ListWidget(prefix_label=False),
         option_widget=CheckboxInput(),
     )
+
+    # ─── רגישויות (אופציונלי) ────────────────────────────────────────────────
     sensitivities = SelectMultipleField(
         "רגישויות / להימנעות",
         choices=[],
-        validators=[Optional()],
+        validators=[Optional()],  # Optional = לא חובה למלא
         widget=ListWidget(prefix_label=False),
         option_widget=CheckboxInput(),
     )
+
+    # ─── מטרות טיפוח (אופציונלי) ────────────────────────────────────────────
     goals = SelectMultipleField(
         "מטרות טיפוח",
         choices=[],
@@ -120,6 +176,8 @@ class SkinQuestionnaireForm(FlaskForm):
         widget=ListWidget(prefix_label=False),
         option_widget=CheckboxInput(),
     )
+
+    # ─── תקציב (RadioField — בחירה אחת) ─────────────────────────────────────
     budget = RadioField(
         "תקציב חודשי משוער לטיפוח פנים",
         choices=[
@@ -129,8 +187,13 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── זמן לטיפוח (מספרים) ────────────────────────────────────────────────
+    # NumberRange(min=2, max=60) = הערך חייב להיות בין 2 ל-60
     time_morning = IntegerField("דקות זמינות לטיפוח בבוקר", validators=[DataRequired(), NumberRange(min=2, max=60)])
     time_evening = IntegerField("דקות זמינות בערב", validators=[DataRequired(), NumberRange(min=2, max=90)])
+
+    # ─── אקלים ──────────────────────────────────────────────────────────────
     climate = SelectField(
         "אקלים / עונה דומיננטית",
         choices=[
@@ -142,11 +205,15 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── מי ברז ─────────────────────────────────────────────────────────────
     water_hard = RadioField(
         "מי ברז בבית",
         choices=[("soft", "רכים"), ("hard", "קשים / אבנית"), ("unknown", "לא יודעת")],
         validators=[DataRequired()],
     )
+
+    # ─── חשיפה לשמש ─────────────────────────────────────────────────────────
     sun_exposure = RadioField(
         "חשיפה לשמש יומית",
         choices=[
@@ -156,6 +223,8 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── תדירות איפור ───────────────────────────────────────────────────────
     makeup_frequency = RadioField(
         "תדירות איפור",
         choices=[
@@ -165,6 +234,8 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── שימוש ב-SPF (הגנה מהשמש) ───────────────────────────────────────────
     spf_habit = RadioField(
         "שימוש ב-SPF",
         choices=[
@@ -174,6 +245,8 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── אקספוליאציה (פילינג) ────────────────────────────────────────────────
     exfoliation = RadioField(
         "אקספוליאציה (פילינג) היום",
         choices=[
@@ -183,6 +256,8 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── ניסיון עם רטינול ────────────────────────────────────────────────────
     retinol = RadioField(
         "ניסיון עם רטינול / רטינואיד",
         choices=[
@@ -192,6 +267,8 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── הריון / הנקה ────────────────────────────────────────────────────────
     pregnancy = RadioField(
         "הריון / הנקה (למידע בלבד — אין המלצות רפואיות)",
         choices=[
@@ -202,13 +279,27 @@ class SkinQuestionnaireForm(FlaskForm):
         ],
         validators=[DataRequired()],
     )
+
+    # ─── שימוש בחומצות ───────────────────────────────────────────────────────
     uses_actives = BooleanField("משתמשת כיום בחומצות / ויטמין סי / רטינול באופן קבוע")
+
+    # ─── הערות חופשיות ───────────────────────────────────────────────────────
     notes = TextAreaField("הערות נוספות (אופציונלי)", validators=[Optional()])
+
+    # ─── כפתור שליחה ─────────────────────────────────────────────────────────
     submit = SubmitField("שליחה ויצירת שגרה מותאמת")
 
 
+# =============================================================================
+# פונקציות עזר לטיפול בטופס
+# =============================================================================
+
 def _init_form_choices(form: SkinQuestionnaireForm) -> None:
-    """טעינת רשימות הבחירה הדינמיות לתוך אובייקט הטופס."""
+    """טוען את רשימות הבחירה הדינמיות לתוך אובייקט הטופס.
+
+    נקרא לפני הצגת הטופס כדי למלא את ה-choices של שדות שהוגדרו
+    עם choices=[] (ריק). זה מאפשר לשנות את הרשימות בקלות.
+    """
     form.skin_type.choices = _choices_skin()
     form.concerns.choices = _concerns()
     form.sensitivities.choices = _sens()
@@ -216,7 +307,11 @@ def _init_form_choices(form: SkinQuestionnaireForm) -> None:
 
 
 def _answers_to_dict(form: SkinQuestionnaireForm) -> dict:
-    """המרת נתוני הטופס למבנה מילון אחיד לשמירה בבסיס הנתונים."""
+    """ממיר את כל נתוני הטופס למילון Python אחיד.
+
+    המילון הזה נשמר כ-JSON ב-SkinProfile.questionnaire_json
+    וגם משמש כקלט ליצירת השגרה (generate_routine).
+    """
     return {
         "skin_type": form.skin_type.data,
         "age_range": form.age_range.data,
@@ -240,7 +335,11 @@ def _answers_to_dict(form: SkinQuestionnaireForm) -> dict:
 
 
 def _hydrate_form_from_answers(form: SkinQuestionnaireForm, answers: dict) -> None:
-    """טעינת תשובות קודמות לתוך הטופס (לעריכה חוזרת על-ידי המשתמש)."""
+    """טוען תשובות קודמות לתוך הטופס (לעריכה חוזרת).
+
+    כשמשתמש חוזר לשאלון, הוא רואה את התשובות שמילא בפעם הקודמת
+    ולא צריך למלא הכל מהתחלה.
+    """
     form.skin_type.data = answers.get("skin_type")
     form.age_range.data = answers.get("age_range")
     form.concerns.data = list(answers.get("concerns") or [])
@@ -262,48 +361,72 @@ def _hydrate_form_from_answers(form: SkinQuestionnaireForm, answers: dict) -> No
 
 
 def _summary_label(answers: dict) -> str:
-    """יוצר תיאור קצר בעברית להצגת הפרופיל במסכים שונים."""
+    """יוצר תיאור קצר בעברית מתשובות השאלון — לתצוגה בממשק.
+
+    לדוגמה: "יבש — פצעונים · יובש · אדמומיות"
+    מוצג בדף השגרה ובפרופיל בקהילה.
+    """
     st = answers.get("skin_type", "")
-    mapping = dict(_choices_skin()[1:])
+    mapping = dict(_choices_skin()[1:])  # המרה מקוד לעברית (ללא הערך הריק)
     skin_he = mapping.get(st, st)
     concerns = answers.get("concerns") or []
-    cm = dict(_concerns())
-    cs = " · ".join([cm.get(c, c) for c in concerns[:3]])
+    cm = dict(_concerns())  # המרה מקוד לעברית
+    cs = " · ".join([cm.get(c, c) for c in concerns[:3]])  # מציג עד 3 חששות
     if len(concerns) > 3:
-        cs += "…"
+        cs += "…"  # אם יש יותר מ-3, מוסיפים שלוש נקודות
     return f"{skin_he} — {cs or 'ללא ציון חששות'}"
 
 
+# =============================================================================
+# ראוטים
+# =============================================================================
+
 @questionnaire_bp.route("/questionnaire", methods=["GET", "POST"])
-@login_required
+@login_required  # חובה להיות מחובר כדי למלא שאלון
 def show_questionnaire():
-    """הצגת שאלון העור ושמירתו.
+    """ראוט השאלון — /questionnaire
 
-    ב-GET:
-    - מציגים את הטופס.
-    - אם קיימות תשובות קודמות, טוענים אותן לעריכה.
+    GET — הצגת הטופס:
+    - יוצר אובייקט טופס
+    - אם יש תשובות קודמות ב-DB → טוען אותן לטופס (לעריכה חוזרת)
+    - מציג את form.html
 
-    ב-POST תקין:
-    - שומרים/מעדכנים פרופיל עור.
-    - מייצרים שגרת בוקר/ערב.
-    - שומרים מצב נוכחי בטבלת Routine.
-    - יוצרים גרסה חדשה בהיסטוריית RoutineVersion.
+    POST — שמירת תשובות ויצירת שגרה:
+    1. ולידציה — כל השדות מולאו כנדרש?
+    2. שמירת תשובות ב-SkinProfile (JSON)
+    3. יצירת שגרה: generate_routine() → בוקר + ערב
+    4. שמירת שגרה נוכחית ב-Routine
+    5. שמירת גרסה בהיסטוריה (RoutineVersion)
+    6. הפניה לדף השגרה (/routine)
     """
+    # יצירת אובייקט הטופס וטעינת רשימות בחירה
     form = SkinQuestionnaireForm()
     _init_form_choices(form)
+
+    # בדיקה אם יש פרופיל קיים (תשובות קודמות)
     prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
+
+    # טעינת תשובות קודמות — רק אם זה GET (לא POST)
     if prof and form.is_submitted() is False:
         _hydrate_form_from_answers(form, prof.get_answers())
 
+    # ─── טיפול ב-POST (שליחת טופס) ──────────────────────────────────────
     if form.validate_on_submit():
+        # שלב 1: המרת נתוני הטופס למילון
         answers = _answers_to_dict(form)
+
+        # שלב 2: שמירת/עדכון פרופיל עור
         if prof is None:
             prof = SkinProfile(user_id=current_user.id)
             db.session.add(prof)
-        prof.set_answers(answers)
-        prof.summary_label = _summary_label(answers)
+        prof.set_answers(answers)          # שומר כ-JSON
+        prof.summary_label = _summary_label(answers)  # סיכום קצר
 
+        # שלב 3: יצירת שגרת טיפוח (AI או fallback)
+        # generate_routine מחזירה: (טקסט_בוקר, טקסט_ערב, האם_AI)
         m_text, e_text, used_ai = generate_routine(answers)
+
+        # שלב 4: שמירת/עדכון שגרה נוכחית
         r = Routine.query.filter_by(user_id=current_user.id).first()
         if r is None:
             r = Routine(user_id=current_user.id)
@@ -312,12 +435,14 @@ def show_questionnaire():
         r.evening_text = e_text
         r.used_openai = used_ai
 
+        # שלב 5: יצירת גרסה חדשה בהיסטוריה
         prev_version = (
             RoutineVersion.query.filter_by(user_id=current_user.id)
             .order_by(RoutineVersion.version_number.desc())
             .first()
         )
         next_version = (prev_version.version_number + 1) if prev_version else 1
+
         rv = RoutineVersion(
             user_id=current_user.id,
             version_number=next_version,
@@ -325,9 +450,12 @@ def show_questionnaire():
             evening_text=e_text,
             used_openai=used_ai,
         )
-        rv.set_answers(answers)
+        rv.set_answers(answers)  # שמירת snapshot של התשובות
         db.session.add(rv)
+
+        # שמירת הכל ב-DB
         db.session.commit()
+
         log_audit_event(
             "questionnaire.submit_success",
             user_id=current_user.id,
@@ -335,8 +463,11 @@ def show_questionnaire():
             used_openai=used_ai,
         )
         flash(f"השאלון נשמר ונוצרה שגרה מותאמת אישית (גרסה {next_version}).", "success")
+
+        # שלב 6: הפניה לדף השגרה
         return redirect(url_for("questionnaire.view_routine"))
 
+    # ─── טיפול בולידציה שנכשלה ───────────────────────────────────────────
     if form.is_submitted():
         log_audit_event(
             "questionnaire.submit_partial",
@@ -348,15 +479,17 @@ def show_questionnaire():
             "warning",
         )
 
+    # ─── הצגת הטופס (GET או POST שנכשל) ─────────────────────────────────
     return render_template("questionnaire/form.html", form=form)
 
 
 @questionnaire_bp.route("/routine", methods=["GET"])
 @login_required
 def view_routine():
-    """תצוגת השגרה האחרונה שנוצרה למשתמש.
+    """ראוט תצוגת שגרה — /routine
 
-    אם אין עדיין פרופיל או שגרה, המשתמש מופנה חזרה לשאלון.
+    מציג את השגרה האחרונה שנוצרה למשתמש (בוקר + ערב).
+    אם אין עדיין פרופיל או שגרה — מפנה חזרה לשאלון.
     """
     r = Routine.query.filter_by(user_id=current_user.id).first()
     prof = SkinProfile.query.filter_by(user_id=current_user.id).first()
@@ -368,10 +501,11 @@ def view_routine():
     if not r or not prof:
         flash("עדיין לא מולא שאלון — נא למלא את השאלון.", "warning")
         return redirect(url_for("questionnaire.show_questionnaire"))
+
     return render_template(
         "questionnaire/routine.html",
-        routine=r,
-        profile=prof,
-        answers=prof.get_answers(),
-        latest_version=latest_version,
+        routine=r,               # שגרה נוכחית (Routine)
+        profile=prof,            # פרופיל עור (SkinProfile)
+        answers=prof.get_answers(),  # תשובות כמילון (לתצוגה)
+        latest_version=latest_version,  # מספר הגרסה האחרונה
     )

@@ -1,20 +1,59 @@
-/* PersonalSkin — עיצוב נקי, RTL */
+/*
+=============================================================================
+קובץ: static/css/style.css
+שייך ל: צד לקוח (Client-Side) — עיצוב האתר
+=============================================================================
+תפקיד הקובץ:
+    קובץ ה-CSS היחיד של האתר — מגדיר את המראה של כל הדפים.
+    כל דפי ה-HTML מייבאים אותו דרך base.html.
+
+    הקובץ מחולק לחלקים:
+    1. משתני CSS (CSS Variables) — צבעים, גדלים, צללים
+    2. איפוס ובסיס — box-sizing, margin, font
+    3. Header — לוגו ותפריט ניווט
+    4. Main Content — אזור התוכן הראשי
+    5. Footer — כותרת תחתונה
+    6. כרטיסים (Cards) — קופסאות תוכן מעוגלות עם צל
+    7. כפתורים (Buttons) — btn, btn-ghost
+    8. טפסים (Forms) — שדות קלט, labels, שגיאות
+    9. הודעות Flash — הצלחה/שגיאה/אזהרה
+    10. שאלון — sections, checkboxes, radio buttons
+    11. שגרה — עמודות בוקר/ערב, Markdown, badges
+    12. קהילה — כרטיסי שיתוף, לייקים, תגובות
+
+    עקרונות עיצוב:
+    - RTL (ימין לשמאל) — מתאים לעברית
+    - Responsive — מתאים גם למסכי מובייל (grid auto-fit)
+    - CSS Variables — קל לשנות צבעים במקום אחד
+    - ללא JavaScript — כל העיצוב ב-CSS בלבד
+=============================================================================
+*/
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 1. משתני CSS (CSS Custom Properties) — צבעים וגדלים גלובליים            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* :root = אלמנט השורש (html). משתנים שמוגדרים כאן זמינים בכל הקובץ       */
+/* var(--bg) = שימוש במשתנה                                                */
 :root {
-  --bg: #faf7f5;
-  --card: #ffffff;
-  --text: #2c2420;
-  --muted: #6b5e56;
-  --accent: #c4a484;
-  --accent-dark: #8b7355;
-  --border: #e8dfd7;
-  --success: #3d7c47;
-  --danger: #b33a3a;
-  --info: #2a6f97;
-  --radius: 12px;
-  --shadow: 0 8px 24px rgba(44, 36, 32, 0.08);
-  font-family: "Segoe UI", "Heebo", "Arial Hebrew", sans-serif;
+  --bg: #faf7f5;            /* צבע רקע של כל האתר */
+  --card: #ffffff;           /* צבע רקע של כרטיסים */
+  --text: #2c2420;           /* צבע טקסט ראשי */
+  --muted: #6b5e56;          /* צבע טקסט משני (חלש) */
+  --accent: #c4a484;         /* צבע הדגשה ראשי (חום בהיר) */
+  --accent-dark: #8b7355;    /* צבע הדגשה כהה (לכפתורים) */
+  --border: #e8dfd7;         /* צבע גבולות */
+  --success: #3d7c47;        /* ירוק — הצלחה */
+  --danger: #b33a3a;         /* אדום — שגיאה */
+  --info: #2a6f97;           /* כחול — מידע */
+  --radius: 12px;            /* רדיוס פינות מעוגלות */
+  --shadow: 0 8px 24px rgba(44, 36, 32, 0.08);  /* צל עדין לכרטיסים */
+  font-family: "Segoe UI", "Heebo", "Arial Hebrew", sans-serif;  /* פונט */
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 2. איפוס ובסיס — הגדרות כלליות לכל האלמנטים                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* box-sizing: border-box = padding ו-border נכללים ברוחב האלמנט           */
 * {
   box-sizing: border-box;
 }
@@ -23,37 +62,41 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  line-height: 1.6;
-  min-height: 100vh;
+  line-height: 1.6;          /* גובה שורה — מרחק בין שורות טקסט */
+  min-height: 100vh;         /* vh = אחוז מגובה המסך. 100vh = מסך מלא */
   display: flex;
-  flex-direction: column;
+  flex-direction: column;    /* flexbox עמודה — header למעלה, footer למטה */
 }
 
+/* ─── קישורים ──────────────────────────────────────────────────────────── */
 a {
   color: var(--accent-dark);
-  text-decoration: none;
+  text-decoration: none;      /* ללא קו תחתון */
 }
 a:hover {
-  text-decoration: underline;
+  text-decoration: underline; /* קו תחתון רק בריחוף */
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 3. Header — לוגו ותפריט ניווט (דביק בראש הדף)                          */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .site-header {
   background: var(--card);
   border-bottom: 1px solid var(--border);
-  position: sticky;
+  position: sticky;           /* דביק — נשאר בראש גם בגלילה */
   top: 0;
-  z-index: 10;
+  z-index: 10;                /* מעל תוכן אחר */
 }
 
 .header-inner {
-  max-width: 1040px;
-  margin: 0 auto;
+  max-width: 1040px;          /* רוחב מקסימלי */
+  margin: 0 auto;             /* ממורכז */
   padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between;  /* לוגו בצד, ניווט בצד השני */
   gap: 1rem;
-  flex-wrap: wrap;
+  flex-wrap: wrap;            /* שבירת שורה במסכים צרים */
 }
 
 .logo {
@@ -65,23 +108,29 @@ a:hover {
 .nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1rem;                  /* מרחק בין קישורי הניווט */
   flex-wrap: wrap;
 }
 
 .nav .user-email {
   font-size: 0.85rem;
-  color: var(--muted);
+  color: var(--muted);        /* אימייל המשתמש בצבע חלש */
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 4. Main Content — אזור התוכן הראשי                                       */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .main-content {
-  flex: 1;
+  flex: 1;                    /* תופס את כל המקום הזמין (דוחף footer למטה) */
   max-width: 1040px;
   margin: 0 auto;
   padding: 2rem 1.25rem;
   width: 100%;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 5. Footer — כותרת תחתונה                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .site-footer {
   text-align: center;
   padding: 1.5rem;
@@ -90,23 +139,29 @@ a:hover {
   border-top: 1px solid var(--border);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 6. כרטיסים (Cards) — קופסאות תוכן                                       */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .card {
   background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-radius: var(--radius);  /* פינות מעוגלות */
+  box-shadow: var(--shadow);     /* צל עדין */
   padding: 2rem;
 }
 
 .card.narrow {
-  max-width: 440px;
+  max-width: 440px;              /* כרטיס צר — לטפסי התחברות */
   margin: 0 auto;
 }
 
 .card.wide {
-  max-width: 900px;
+  max-width: 900px;              /* כרטיס רחב — לשאלון וקהילה */
   margin: 0 auto;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* דף הבית (Hero)                                                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .hero h1 {
   margin-top: 0;
   font-size: 2rem;
@@ -125,16 +180,19 @@ a:hover {
 }
 
 .feature-list {
-  padding-right: 1.25rem;
+  padding-right: 1.25rem;        /* RTL — padding ימני */
   color: var(--muted);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 7. כפתורים (Buttons)                                                      */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .btn {
   display: inline-block;
   background: var(--accent-dark);
   color: #fff !important;
   padding: 0.6rem 1.2rem;
-  border-radius: 999px;
+  border-radius: 999px;          /* עגול לגמרי */
   border: none;
   cursor: pointer;
   font-size: 1rem;
@@ -142,9 +200,10 @@ a:hover {
 }
 
 .btn:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.05);      /* קצת יותר בהיר בריחוף */
 }
 
+/* כפתור שקוף עם גבול */
 .btn-ghost {
   background: transparent;
   color: var(--accent-dark) !important;
@@ -155,12 +214,16 @@ a:hover {
   margin-top: 1.5rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 8. טפסים (Forms) — שדות קלט, labels, שגיאות                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .form-grid {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1rem;                     /* מרחק בין שדות */
 }
 
+/* שתי עמודות — מתאים את עצמו למסך צר (auto-fit) */
 .form-grid.two-cols {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -183,9 +246,10 @@ label {
 
 .textarea {
   min-height: 100px;
-  resize: vertical;
+  resize: vertical;              /* המשתמש יכול לשנות גובה */
 }
 
+/* הודעת שגיאה מתחת לשדה */
 .error {
   color: var(--danger);
   font-size: 0.9rem;
@@ -195,6 +259,9 @@ label {
   color: var(--muted);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 9. הודעות Flash — הצלחה / שגיאה / אזהרה / מידע                          */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .flash-wrap {
   margin-bottom: 1rem;
 }
@@ -206,27 +273,29 @@ label {
 }
 
 .flash-success {
-  background: #e8f5e9;
+  background: #e8f5e9;          /* ירוק בהיר */
   color: var(--success);
 }
 .flash-danger {
-  background: #ffebee;
+  background: #ffebee;          /* אדום בהיר */
   color: var(--danger);
 }
 .flash-warning {
-  background: #fff8e1;
+  background: #fff8e1;          /* צהוב בהיר */
   color: #8a6d1b;
 }
 .flash-info {
-  background: #e3f2fd;
+  background: #e3f2fd;          /* כחול בהיר */
   color: var(--info);
 }
 
-/* שאלון */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 10. שאלון — sections, checkboxes, radio buttons                          */
+/* ═══════════════════════════════════════════════════════════════════════════ */
 .form-section {
   margin-bottom: 2rem;
   padding-bottom: 2rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);  /* קו מפריד בין סקשנים */
 }
 
 .form-section h2 {
@@ -235,6 +304,7 @@ label {
   color: var(--accent-dark);
 }
 
+/* fieldset ללא גבול — עוטף קבוצת checkboxes */
 .checkbox-fieldset {
   border: none;
   margin: 1rem 0;
@@ -247,6 +317,7 @@ label {
   margin-bottom: 0.5rem;
 }
 
+/* grid של checkboxes — מתפרש על כל הרוחב */
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -267,13 +338,14 @@ label {
   margin-top: 0.2rem;
   flex-shrink: 0;
   cursor: pointer;
-  accent-color: var(--accent-dark);
+  accent-color: var(--accent-dark);  /* צבע ה-checkbox */
 }
 
 .checkbox-label.block {
   margin: 1rem 0;
 }
 
+/* קבוצת radio buttons */
 .radio-group {
   margin: 1rem 0;
 }
@@ -292,7 +364,10 @@ label {
   font-weight: 500;
 }
 
-/* שגרה */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 11. שגרה — עמודות בוקר/ערב, Markdown, badges                            */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* שתי עמודות: בוקר וערב — מתכווצות לעמודה אחת במסך צר */
 .routine-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -312,15 +387,17 @@ label {
   color: var(--accent-dark);
 }
 
+/* עיצוב תוכן Markdown שהומר ל-HTML */
 .markdown-body :is(h1, h2, h3) {
   margin-top: 0.75rem;
 }
 
 .markdown-body ul,
 .markdown-body ol {
-  padding-right: 1.25rem;
+  padding-right: 1.25rem;       /* RTL — padding ימני לרשימות */
 }
 
+/* badge — תגית קטנה (AI / fallback) */
 .badge {
   display: inline-block;
   background: #e8f4ea;
@@ -343,7 +420,10 @@ label {
   margin-top: 2rem;
 }
 
-/* קהילה */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* 12. קהילה — כרטיסי שיתוף, לייקים, תגובות                               */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* אזור פרסום שיתוף — גבול מקווקו */
 .share-box {
   background: #fffdfb;
   border: 1px dashed var(--accent);
@@ -352,12 +432,14 @@ label {
   margin-bottom: 2rem;
 }
 
+/* טופס פרסום — בשורה אחת */
 .share-inline {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-end;
 }
 
+/* רשימת כרטיסי שיתוף */
 .share-feed {
   display: flex;
   flex-direction: column;
@@ -371,6 +453,7 @@ label {
   background: var(--card);
 }
 
+/* כותרת כרטיס — שם + תאריך */
 .share-card-head {
   display: flex;
   justify-content: space-between;
@@ -389,6 +472,7 @@ label {
   color: var(--muted);
 }
 
+/* details/summary — אקורדיון לפרופיל */
 .share-details summary {
   cursor: pointer;
   font-weight: 600;
@@ -405,6 +489,7 @@ label {
   font-size: 0.95rem;
 }
 
+/* שורת ספירת לייקים/דיסלייקים */
 .reaction-row {
   display: flex;
   gap: 1rem;
@@ -413,6 +498,7 @@ label {
   font-size: 0.95rem;
 }
 
+/* כפתורי לייק/דיסלייק */
 .reaction-actions {
   display: flex;
   gap: 0.75rem;
@@ -423,12 +509,14 @@ label {
   margin: 0;
 }
 
+/* כפתור פעיל (כבר נלחץ) — רקע צבעוני */
 .btn-active {
   background: var(--accent);
   color: #fff !important;
   border-color: var(--accent-dark);
 }
 
+/* אימוג'י לייק/דיסלייק — גודל ומרחק */
 .reaction-emoji {
   font-size: 1.2rem;
   line-height: 1;

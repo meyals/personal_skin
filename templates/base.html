@@ -1,23 +1,70 @@
+<!--
+=============================================================================
+קובץ: templates/base.html
+שייך ל: צד לקוח (Client-Side) — תבנית HTML בסיסית
+=============================================================================
+תפקיד הקובץ:
+    תבנית בסיס (Base Template) שכל שאר דפי ה-HTML יורשים ממנה.
+    כוללת את המבנה הקבוע של כל דף: header, navigation, footer, flash messages.
+
+    Jinja2 Inheritance (ירושת תבניות):
+    - base.html מגדיר את השלד (skeleton) של כל דף
+    - דפים אחרים (login.html, form.html...) כותבים {% extends "base.html" %}
+      ומשנים רק את הבלוקים {% block title %} ו-{% block content %}
+    - כל מה שלא בתוך block — משותף לכל הדפים
+
+    מבנה הדף:
+    ┌─────────────────────────────────────────────┐
+    │ <header> — לוגו + תפריט ניווט (nav)       │
+    │   - משתמש מחובר: שאלון, שגרה, קהילה, logout│
+    │   - לא מחובר: קהילה, התחברות, הרשמה        │
+    ├─────────────────────────────────────────────┤
+    │ <main> — תוכן הדף ({% block content %})   │
+    │   - הודעות flash (הצלחה/שגיאה/אזהרה)      │
+    │   - תוכן ספציפי לכל דף                     │
+    ├─────────────────────────────────────────────┤
+    │ <footer> — הערת אחריות ("לא מחליף ייעוץ") │
+    └─────────────────────────────────────────────┘
+
+    Jinja2 Expressions בקובץ:
+    - {{ url_for('...') }}  → יוצר URL לראוט (למשל /login)
+    - {% if ... %}          → תנאי (הצגת תפריט לפי מצב התחברות)
+    - {% block ... %}       → בלוק שדפים יורשים יכולים לדרוס
+    - {{ current_user }}    → אובייקט המשתמש המחובר (מ-Flask-Login)
+    - get_flashed_messages() → הודעות שנשמרו עם flash() ב-routes
+=============================================================================
+-->
 <!DOCTYPE html>
+<!-- dir="rtl" → כיוון טקסט מימין לשמאל (עברית) -->
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
+  <!-- viewport → מתאים את הדף למסכי מובייל -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- {% block title %} → כל דף יורש יכול לשנות את הכותרת -->
   <title>{% block title %}PersonalSkin{% endblock %}</title>
+  <!-- טעינת קובץ CSS → url_for יוצר נתיב נכון לקובץ סטטי -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- Header — לוגו ותפריט ניווט (קבוע בראש כל דף)                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <header class="site-header">
     <div class="header-inner">
+      <!-- לוגו — לחיצה מחזירה לדף הבית -->
       <a class="logo" href="{{ url_for('index') }}">PersonalSkin</a>
       <nav class="nav">
+        <!-- תפריט שונה למשתמש מחובר ולא מחובר -->
         {% if current_user.is_authenticated %}
+          <!-- ═══ משתמש מחובר ═══ -->
           <a href="{{ url_for('questionnaire.show_questionnaire') }}">שאלון עור</a>
           <a href="{{ url_for('questionnaire.view_routine') }}">השגרה שלי</a>
           <a href="{{ url_for('community.community_feed') }}">קהילה</a>
           <span class="user-email">{{ current_user.email }}</span>
           <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost">התנתקות</a>
         {% else %}
+          <!-- ═══ משתמש לא מחובר ═══ -->
           <a href="{{ url_for('community.community_feed') }}">קהילה</a>
           <a href="{{ url_for('auth.login') }}" class="btn btn-ghost">התחברות</a>
           <a href="{{ url_for('auth.register') }}" class="btn">הרשמה</a>
@@ -26,19 +73,30 @@
     </div>
   </header>
 
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- Main — תוכן הדף הספציפי                                           -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <main class="main-content">
+    <!-- ─── הודעות Flash ─────────────────────────────────────────────── -->
+    <!-- flash() ב-Python → get_flashed_messages() ב-HTML                -->
+    <!-- category = סוג ההודעה (success/danger/warning/info)             -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-wrap">
           {% for category, message in messages %}
+            <!-- flash-success / flash-danger / flash-warning = סגנון CSS -->
             <div class="flash flash-{{ category }}">{{ message }}</div>
           {% endfor %}
         </div>
       {% endif %}
     {% endwith %}
+    <!-- ─── בלוק content — כל דף יורש מציב כאן את התוכן שלו ─────── -->
     {% block content %}{% endblock %}
   </main>
 
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- Footer — כותרת תחתונה קבועה                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
   <footer class="site-footer">
     <p>PersonalSkin — כלי עזר להמלצות טיפוח. אינו מחליף ייעוץ רפואי או מקצועי.</p>
   </footer>

@@ -1,15 +1,41 @@
+<!--
+=============================================================================
+קובץ: templates/auth/login.html
+שייך ל: צד לקוח (Client-Side) — דף התחברות
+=============================================================================
+תפקיד הקובץ:
+    דף ההתחברות — טופס עם אימייל וסיסמה.
+    יורש מ-base.html ({% extends "base.html" %}).
+
+    Jinja2 Elements:
+    - form.hidden_tag() → מוסיף אסימון CSRF מוסתר (הגנה מזיוף בקשות)
+    - form.email.label → התווית "אימייל"
+    - form.email(class="input") → שדה הקלט עם class CSS
+    - form.email.errors → רשימת שגיאות ולידציה (אם נכשל)
+    - form.submit(class="btn") → כפתור שליחה
+
+    הטופס נשלח ב-POST לראוט /login (auth/routes.py)
+    שם Flask שולח את הנתונים לשרת האימות TCP.
+=============================================================================
+-->
 {% extends "base.html" %}
 {% block title %}התחברות — PersonalSkin{% endblock %}
 {% block content %}
 <div class="card narrow">
   <h1>התחברות</h1>
   <p class="muted small">אימות מתבצע מול שרת TCP נפרד (פורט 5050) — ארכיטקטורת שרת-לקוח.</p>
+  <!-- method="post" → שליחה ב-HTTP POST (לא GET, כי יש סיסמה!) -->
+  <!-- novalidate → מבטל ולידציה של הדפדפן (Flask מטפל בולידציה) -->
   <form method="post" class="form-grid" novalidate>
+    <!-- hidden_tag = אסימון CSRF מוסתר — הגנה מזיוף בקשות -->
     {{ form.hidden_tag() }}
+    <!-- שדה אימייל + הצגת שגיאות ולידציה -->
     <label>{{ form.email.label }}{{ form.email(class="input") }}</label>
     {% for e in form.email.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    <!-- שדה סיסמה (PasswordField = מוצג כנקודות) -->
     <label>{{ form.password.label }}{{ form.password(class="input") }}</label>
     {% for e in form.password.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    <!-- כפתור שליחה -->
     {{ form.submit(class="btn") }}
   </form>
   <p class="muted"><a href="{{ url_for('auth.forgot_password') }}">שכחתי סיסמה</a></p>

@@ -1,10 +1,25 @@
-"""נקודת כניסה לייצור (Production) — Gunicorn / Render.
+"""
+=============================================================================
+קובץ: wsgi.py
+שייך ל: צד שרת (Server-Side) — נקודת כניסה לייצור (Production)
+=============================================================================
+תפקיד הקובץ:
+    נקודת כניסה לסביבת ייצור (Render / שרת ענן).
+    Gunicorn (שרת WSGI מקצועי) טוען את האובייקט `app` מהקובץ הזה.
 
-בפיתוח משתמשים ב-run.py; בשרת ענן Gunicorn טוען את האובייקט `app` מכאן.
-משתנה FLASK_CONFIG=production מכבה מצב debug.
+    ההבדל מ-run.py:
+    - run.py = פיתוח (debug, שרת Flask מובנה)
+    - wsgi.py = ייצור (Gunicorn, ללא debug)
 
-שרת האימות TCP (socket_auth) מופעל אוטומטית ב-thread רקע
-כך שאין צורך בתהליך נפרד ב-Render.
+    שרת אימות TCP ברקע:
+    בפיתוח מריצים את שרת האימות בטרמינל נפרד (run_auth_server.py).
+    בייצור (Render) — אין אפשרות להריץ שני תהליכים, אז wsgi.py
+    מפעיל את שרת האימות אוטומטית ב-thread ברקע (daemon thread).
+
+    WSGI = Web Server Gateway Interface:
+    תקן שמגדיר איך שרת web (כמו Gunicorn) מתקשר עם אפליקציית Python.
+    Gunicorn קורא ל-app ומעביר לו בקשות HTTP.
+=============================================================================
 """
 import os
 import threading
@@ -12,20 +27,27 @@ import threading
 from app import create_app
 from app.socket_auth.server import run_auth_socket_server
 
+# ─── יצירת אפליקציית Flask במצב ייצור ────────────────────────────────────────
 app = create_app(os.getenv("FLASK_CONFIG", "production"))
 
+
 def _start_auth_server():
-    """מפעיל שרת אימות TCP — מתעלם אם הפורט כבר תפוס (worker נוסף)."""
+    """מפעיל את שרת האימות TCP ברקע.
+
+    מתעלם מ-OSError אם הפורט כבר תפוס (למשל ב-Gunicorn עם מספר workers).
+    כל worker מנסה להפעיל את שרת האימות, אבל רק הראשון מצליח.
+    """
     try:
         run_auth_socket_server(app)
     except OSError as e:
         print(f"[wsgi] Auth socket server not started (port busy?): {e}")
 
-# הפעלת שרת אימות TCP ברקע — daemon thread נסגר עם התהליך הראשי
+
+# ─── הפעלת שרת אימות TCP ב-thread ברקע ───────────────────────────────────────
+# daemon=True → ה-thread נסגר אוטומטית כשהתהליך הראשי נסגר
 _auth_thread = threading.Thread(
     target=_start_auth_server,
     daemon=True,
     name="auth-socket-server",
 )
 _auth_thread.start()
-
