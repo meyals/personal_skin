@@ -1,10 +1,30 @@
 services:
+  # ─── שרת Flask (Web) ────────────────────────────────────────────────────────
   - type: web
     name: personal-skin
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn wsgi:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: personal-skin-db
+          property: connectionString
+      - key: FLASK_CONFIG
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+
+  # ─── שרת אימות TCP (Auth Socket Server) ────────────────────────────────────
+  - type: worker
+    name: personal-skin-auth
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run_auth_server.py
     envVars:
       - key: DATABASE_URL
         fromDatabase:
